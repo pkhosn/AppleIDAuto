@@ -1,0 +1,24 @@
+{__NOLAYOUT__}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{$site.site_name|default='账号分享'} - {$errorTitle|default='分享页已失效'}</title>
+    <link rel="stylesheet" href="/static/css/panel.css?v=20260901-ui4">
+    <link rel="stylesheet" href="/static/css/shadcn-controls.css?v=20260902-controls1">
+    <link rel="stylesheet" href="/static/css/share-enhancements.css?v=20260903-share2">
+</head>
+<body class="share-page">
+<main class="share-container share-gate" aria-labelledby="share-error-title">
+    <header class="share-hero">{if $site.site_logo}<img class="share-hero-logo" src="{$site.site_logo}" alt="">{/if}<p class="share-hero-kicker">{$site.site_name|default='账号分享'}</p><h1 id="share-error-title">{$errorTitle|default='分享页已失效'}</h1></header>
+    <section class="share-auth-panel share-error-panel">
+        <div class="share-lock-icon" aria-hidden="true">!</div>
+        <h2>{$errorMsg|default='请检查链接和访问密码后重试。'}</h2>
+        <p>{$errorHelp|default=''}</p>
+        <a class="share-auth-submit" href="">刷新后重试</a>
+    </section>
+    <footer class="share-footer">{$site.site_name|default='账号分享'} · 请仅在授权范围内使用</footer>
+</main>
+</body>
+</html>

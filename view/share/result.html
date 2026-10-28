@@ -1,0 +1,78 @@
+{__NOLAYOUT__}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>账号分享 - {$site.site_name|default='账号分享'}</title>
+    <link rel="stylesheet" href="/static/css/panel.css?v=20260901-ui4">
+    <link rel="stylesheet" href="/static/css/shadcn-controls.css?v=20260902-controls1">
+    <link rel="stylesheet" href="/static/css/share-enhancements.css?v=20260903-share2">
+    <link rel="stylesheet" href="/static/css/sweetalert2.min.css">
+    <script src="/static/js/sweetalert2.all.min.js"></script>
+    <script src="/static/js/clipboard.min.js"></script>
+</head>
+<body class="share-page">
+<main class="share-container" aria-labelledby="share-result-title">
+    <div id="share-expired-note" class="share-expired-note" hidden>分享页已失效<br><small>可能原因：已过期 / 已达到访问次数上限 / 链接已被删除。<br>如需继续使用，请联系提供方重新生成分享链接。</small></div>
+    <header class="share-hero">
+        {if $site.site_logo}<img class="share-hero-logo" src="{$site.site_logo}" alt="">{/if}
+        <p class="share-hero-kicker">{$site.site_name|default='账号分享'}</p>
+        <h1 id="share-result-title">分享账号信息</h1>
+        <p>请在授权范围内使用账号信息，并妥善保管本页面链接。</p>
+    </header>
+
+    <section class="share-metrics" aria-label="分享状态">
+        <article class="share-metric" {if $expiresAt}id="share-expiry" data-expires="{$expiresAt}"{/if}>
+            <div>
+                <p class="share-metric-label">剩余时间</p>
+                <strong class="share-metric-value">{if $expiresAt}计算中…{else}不限时{/if}</strong>
+                <p class="share-metric-sub">{if $durationMinutes > 0}首次成功访问后已开始计时{elseif $expiresAt}固定到期时间{else}此链接暂未设置到期时间{/if}</p>
+            </div>
+            <span class="share-metric-badge {if $expiresAt}share-metric-badge-live{/if}">{if $expiresAt}倒计时{else}长期有效{/if}</span>
+        </article>
+        <article class="share-metric">
+            <div>
+                <p class="share-metric-label">账号数量</p>
+                <strong class="share-metric-value">{$accountTotal|default=0} 个</strong>
+                <p class="share-metric-sub">{if $firstAccessAt}本链接已于 {$firstAccessAt} 首次访问{else}账号状态以页面展示为准{/if}</p>
+            </div>
+            <span class="share-metric-badge share-metric-badge-green">已验证</span>
+        </article>
+    </section>
+
+    {$noticeHtml|raw}
+
+    <section class="share-account-section" aria-label="可用账号">
+        <div class="share-account-grid">
+            {volist name="accounts" id="account" key="index"}
+            <article class="share-account-card">
+                <header class="share-account-card-head">
+                    <h2>账号 #{$index}</h2>
+                    <span class="share-status-badge {$account->status?'share-status-good':'share-status-bad'}">{$account->status?'状态正常':'状态异常'}</span>
+                </header>
+                <div class="share-value-row">
+                    <p class="share-value-label">Apple 账户</p>
+                    <div class="share-value"><span>{$account->username|default=''}</span><button class="share-copy-btn copy-button" type="button" data-clipboard-text="{$account->username}">复制</button></div>
+                </div>
+                <div class="share-value-row">
+                    <p class="share-value-label">密码</p>
+                    <div class="share-value"><span>{$account->password|default=''}</span><button class="share-copy-btn copy-button" type="button" data-clipboard-text="{$account->password}">复制</button></div>
+                </div>
+                {if $account->frontend_remark!=""}<div class="share-value-row"><p class="share-value-label">备注</p><div class="share-value share-value-muted">{$account->frontend_remark|raw}</div></div>{/if}
+                <p class="share-account-health {$account->status?'':'share-account-health-bad'}"><i></i>{$account->status?'状态正常':'账号状态异常'}<span>最近检测：{$account->last_check|default='-'}</span></p>
+                {if $account->min_manual_unlock!=0 && env('backend.enable_api')}<form method="post" action="/share/{$link}/{$account->id}/unlock"><input type="hidden" name="_token" value="{$shareActionToken}"><button type="submit" class="share-unlock-btn">手动解锁</button></form>{/if}
+            </article>
+            {/volist}
+        </div>
+        {if !$accounts}<div class="share-empty">当前没有可展示的账号，请联系分享人处理。</div>{/if}
+    </section>
+
+    {if $customHtml}<section class="share-custom-html">{$customHtml|raw}</section>{/if}
+
+    <footer class="share-footer">{$site.site_name|default='账号分享'} · 请仅在授权范围内使用</footer>
+</main>
+<div class="share-toast" role="status" aria-live="polite"></div>
+<script src="/static/js/share-expiry.js?v=20260913-security1"></script>
+</body>
+</html>

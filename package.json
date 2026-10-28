@@ -1,0 +1,12 @@
+{
+  "name": "appleid-panel",
+  "private": true,
+  "scripts": {
+    "css:build": "npx @tailwindcss/cli -i ./resources/css/panel.css -o ./public/static/css/panel.css --minify",
+    "css:watch": "npx @tailwindcss/cli -i ./resources/css/panel.css -o ./public/static/css/panel.css --watch"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
+    "tailwindcss": "4.3.3"
+  }
+}

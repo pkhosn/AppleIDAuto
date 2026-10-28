@@ -1,0 +1,70 @@
+.share-page { margin: 0; min-height: 100vh; padding: 18px; color: #212529; background: #fff; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", Arial, sans-serif; }
+.share-container { max-width: 920px; margin: 0 auto; overflow: hidden; background: #fff; border: 1px solid #eef1f4; border-radius: 18px; box-shadow: 0 12px 30px rgba(15, 23, 42, .10); }
+.share-hero { padding: 26px 20px; color: #fff; text-align: center; background: linear-gradient(135deg, #4facfe 0%, #00d9f5 100%); }
+.share-hero-logo { display: block; width: 34px; height: 34px; margin: 0 auto 9px; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,.18)); }
+.share-hero-kicker { margin: 0 0 4px; font-size: 12px; font-weight: 800; letter-spacing: .08em; opacity: .86; }
+.share-hero h1 { margin: 0; font-size: 23px; font-weight: 800; line-height: 1.25; text-shadow: 0 2px 10px rgba(0,0,0,.14); }
+.share-hero > p:last-child { margin: 9px auto 0; max-width: 580px; font-size: 14px; line-height: 1.6; opacity: .94; }
+.share-metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 18px; }
+.share-metric { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border: 1px solid #eef1f4; border-radius: 14px; background: #fbfbfc; box-shadow: 0 6px 16px rgba(15, 23, 42, .05); }
+.share-metric-label, .share-metric-sub, .share-value-label { margin: 0; color: #6c757d; }
+.share-metric-label { margin-bottom: 6px; font-size: 12px; font-weight: 800; }
+.share-metric-value { display: block; color: #212529; font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.share-metric-sub { margin-top: 6px; font-size: 12px; font-weight: 600; line-height: 1.45; }
+.share-metric-badge, .share-tag, .share-status-badge { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; font-size: 12px; font-weight: 800; white-space: nowrap; }
+.share-metric-badge { padding: 6px 10px; color: #475569; background: #f1f5f9; }
+.share-metric-badge-live { color: #3730a3; background: #eef2ff; }
+.share-metric-badge-green { color: #065f46; background: #ecfdf5; }
+.share-metric-badge-danger { color: #991b1b; background: #fee2e2; }
+.share-notice, .share-guidance { margin: 18px; padding: 14px; border-radius: 12px; font-size: 14px; line-height: 1.65; }
+.share-notice { color: #856404; border: 1px solid #ffe8a1; background: #fff7df; }
+.share-notice strong { display: block; font-weight: 800; }
+.share-notice p { margin: 4px 0 0; }
+.share-guidance { border: 1px solid #eef1f4; background: #fbfbfc; }
+.share-guidance-row { display: flex; align-items: flex-start; gap: 10px; margin: 0 0 9px; color: #495057; }
+.share-guidance-row:last-of-type { margin-bottom: 0; }
+.share-guidance-row p { margin: 0; }
+.share-tag { flex: 0 0 auto; padding: 3px 9px; color: #fff; background: #007bff; }
+.share-tag-gray { background: #6c757d; }
+.share-refresh, .share-unlock-btn { display: inline-flex; align-items: center; justify-content: center; margin-top: 12px; min-height: 38px; padding: 8px 14px; border: 0; border-radius: 999px; color: #fff; background: #007bff; box-shadow: 0 8px 18px rgba(0, 123, 255, .18); font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; text-decoration: none; transition: transform .15s ease, opacity .15s ease; }
+.share-refresh:hover, .share-unlock-btn:hover { color: #fff; opacity: .94; transform: translateY(-1px); }
+.share-custom-html { margin: 18px; }
+.share-account-section { padding: 0 18px 18px; }
+.share-account-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.share-account-card { padding: 16px; border: 1px solid #eef1f4; border-radius: 16px; background: #fbfbfc; box-shadow: 0 6px 16px rgba(15, 23, 42, .06); transition: transform .2s ease, box-shadow .2s ease; }
+.share-account-card:hover { transform: translateY(-3px); box-shadow: 0 11px 24px rgba(15, 23, 42, .09); }
+.share-account-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 13px; }
+.share-account-card-head h2 { margin: 0; color: #343a40; font-size: 15px; font-weight: 800; }
+.share-status-badge { padding: 4px 9px; }
+.share-status-good { color: #065f46; background: #d1fae5; }
+.share-status-bad { color: #991b1b; background: #fee2e2; }
+.share-value-row { margin-bottom: 11px; }
+.share-value-label { margin-bottom: 6px; font-size: 12px; font-weight: 800; }
+.share-value { position: relative; min-height: 42px; padding: 10px 62px 10px 12px; overflow-wrap: anywhere; border: 1px solid #dee2e6; border-radius: 10px; background: #fff; color: #343a40; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; line-height: 1.5; }
+.share-value-muted { padding-right: 12px; color: #6c757d; font-family: inherit; }
+.share-copy-btn { position: absolute; top: 50%; right: 7px; transform: translateY(-50%); padding: 6px 10px; border: 0; border-radius: 8px; color: #fff; background: #007bff; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; transition: transform .15s ease, opacity .15s ease; }
+.share-copy-btn:hover { opacity: .92; transform: translateY(-50%) scale(1.03); }
+.share-account-health { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 0; color: #198754; font-size: 12px; font-weight: 800; line-height: 1.45; }
+.share-account-health i { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.share-account-health span { color: #6c757d; font-weight: 600; }
+.share-account-health-bad { color: #dc3545; }
+.share-empty { margin-top: 16px; padding: 14px; border: 1px solid #e9ecef; border-radius: 12px; color: #495057; background: #f1f3f5; text-align: center; }
+.share-footer { padding: 18px; border-top: 1px solid #eef1f4; color: #6c757d; background: #fbfbfc; font-size: 12px; text-align: center; }
+.share-toast { position: fixed; left: 50%; bottom: 18px; z-index: 9999; max-width: calc(100vw - 32px); padding: 10px 14px; border-radius: 12px; color: #fff; background: rgba(15, 23, 42, .82); font-size: 13px; opacity: 0; pointer-events: none; transform: translate(-50%, 12px); transition: opacity .18s ease, transform .18s ease; }
+.share-toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+.share-toast.is-error { background: rgba(185, 28, 28, .92); }
+.share-gate { max-width: 560px; }
+.share-auth-panel { max-width: 440px; padding: 30px 22px 32px; margin: 0 auto; text-align: center; }
+.share-lock-icon { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; margin-bottom: 12px; border-radius: 50%; color: #007bff; background: #eaf4ff; font-size: 24px; font-weight: 900; }
+.share-auth-panel h2 { margin: 0; color: #343a40; font-size: 19px; }
+.share-auth-panel > p { margin: 8px 0 20px; color: #6c757d; font-size: 14px; line-height: 1.6; }
+.share-auth-label { display: block; margin: 0 0 7px; color: #495057; font-size: 13px; font-weight: 800; text-align: left; }
+.share-password-wrap { position: relative; }
+.share-auth-input { width: 100%; min-height: 44px; padding: 10px 60px 10px 12px; border: 1px solid #dee2e6; border-radius: 10px; outline: none; font: inherit; }
+.share-auth-input:focus { border-color: #4facfe; box-shadow: 0 0 0 3px rgba(79, 172, 254, .18); }
+.share-password-toggle { position: absolute; top: 50%; right: 8px; transform: translateY(-50%); border: 0; color: #007bff; background: transparent; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; }
+.share-auth-submit { width: 100%; min-height: 44px; margin-top: 14px; border: 0; border-radius: 10px; color: #fff; background: #007bff; box-shadow: 0 8px 18px rgba(0, 123, 255, .18); font: inherit; font-weight: 800; cursor: pointer; }
+.share-error-panel .share-lock-icon { color: #b91c1c; background: #fee2e2; }
+.share-error-panel h2 { font-size: 16px; line-height: 1.6; }
+@media (max-width: 720px) { .share-page { padding: 12px; } .share-container { border-radius: 15px; } .share-metrics, .share-account-grid { grid-template-columns: 1fr; } .share-hero { padding: 24px 16px; } .share-metrics, .share-notice, .share-guidance, .share-custom-html { margin: 14px; } .share-account-section { padding: 0 14px 14px; } .share-account-card:hover { transform: none; } }
+.share-expired-note{margin:0 0 18px;padding:14px 16px;border-radius:14px;background:#fdeaea;border:1px solid #f6c6c4;color:#b3261e;text-align:center;font-weight:600}

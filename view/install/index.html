@@ -1,0 +1,73 @@
+{__NOLAYOUT__}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>首次安装 · Apple ID 管理</title>
+    <style>
+        :root{color-scheme:light;--bg:#f8fafc;--card:#fff;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--accent:#059669;--accent2:#047857;--bad:#dc2626;--good:#047857}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif}.wrap{width:min(960px,calc(100% - 32px));margin:48px auto}.head{margin-bottom:24px}.head h1{margin:0 0 8px;font-size:30px;letter-spacing:-.02em}.head p,.help{margin:0;color:var(--muted)}.steps{display:flex;gap:8px;margin:20px 0}.step{flex:1;height:4px;border-radius:99px;background:var(--line)}.step.on{background:var(--accent)}.card{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 1px 2px #0f172a0d;margin-bottom:16px}.card-head{padding:20px 22px;border-bottom:1px solid var(--line)}.card-head h2{font-size:17px;margin:0 0 4px}.card-body{padding:22px}.checks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.check{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;border:1px solid var(--line);border-radius:10px}.badge{display:inline-flex;align-items:center;border-radius:99px;padding:3px 9px;font-size:12px;font-weight:650}.ok{background:#ecfdf5;color:var(--good)}.bad{background:#fef2f2;color:var(--bad)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}.full{grid-column:1/-1}label{display:block;font-weight:650;margin-bottom:6px}input{width:100%;height:44px;border:1px solid #cbd5e1;border-radius:9px;background:#fff;color:var(--text);padding:0 12px;font:inherit;outline:0}input:focus{border-color:var(--accent);box-shadow:0 0 0 3px #10b98126}.actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:18px 22px;border-top:1px solid var(--line)}button{min-height:44px;border-radius:9px;border:1px solid var(--line);background:#fff;padding:0 16px;font:inherit;font-weight:650;cursor:pointer}button.primary{border-color:var(--accent);background:var(--accent);color:#fff}button.primary:hover{background:var(--accent2)}button:disabled{cursor:not-allowed;opacity:.5}.result{display:none;margin-top:16px;padding:12px 14px;border-radius:9px;border:1px solid var(--line);white-space:pre-line}.result.show{display:block}.result.success{border-color:#a7f3d0;background:#ecfdf5;color:var(--good)}.result.error{border-color:#fecaca;background:#fef2f2;color:var(--bad)}.notice{padding:12px 14px;border-radius:9px;background:#fffbeb;color:#92400e;margin-top:14px}@media(max-width:700px){.wrap{margin:24px auto}.checks,.grid{grid-template-columns:1fr}.full{grid-column:auto}.actions{align-items:stretch;flex-direction:column-reverse}.actions button{width:100%}.head h1{font-size:25px}}@media(prefers-reduced-motion:no-preference){button,input{transition:.15s ease}}
+    </style>
+</head>
+<body>
+<main class="wrap">
+    <header class="head">
+        <h1>首次安装向导</h1>
+        <p>完成环境检测、数据库、Redis 和管理员账号初始化。</p>
+        <div class="steps" aria-hidden="true"><span class="step on"></span><span class="step on"></span><span class="step on"></span></div>
+    </header>
+
+    <section class="card">
+        <div class="card-head"><h2>1. 环境检测</h2><p class="help">全部项目通过后即可执行安装。</p></div>
+        <div class="card-body">
+            <div class="checks">
+                {volist name="checks" id="check"}
+                <div class="check"><span>{$check.label}</span><span class="badge {if $check.ok}ok{else/}bad{/if}">{$check.value}</span></div>
+                {/volist}
+            </div>
+            {if !$ready}<div class="notice">修复未通过的环境项目后刷新本页。</div>{/if}
+        </div>
+    </section>
+
+    <form id="installer" autocomplete="off">
+        <input type="hidden" name="_token" value="{$csrf}">
+        <section class="card">
+            <div class="card-head"><h2>2. 数据库与 Redis</h2><p class="help">数据库需提前在宝塔中创建，并保持为空。</p></div>
+            <div class="card-body grid">
+                <div><label for="db_host">数据库地址</label><input id="db_host" name="db_host" value="{$defaults.db_host}" required></div>
+                <div><label for="db_port">数据库端口</label><input id="db_port" name="db_port" type="number" min="1" max="65535" value="{$defaults.db_port}" required></div>
+                <div><label for="db_name">数据库名</label><input id="db_name" name="db_name" value="{$defaults.db_name}" required></div>
+                <div><label for="db_user">数据库用户名</label><input id="db_user" name="db_user" value="{$defaults.db_user}" required></div>
+                <div class="full"><label for="db_password">数据库密码</label><input id="db_password" name="db_password" type="password"></div>
+                <div><label for="redis_host">Redis 检测地址</label><input id="redis_host" name="redis_host" value="{$defaults.redis_host}" required><p class="help">PHP 所在服务器访问地址</p></div>
+                <div><label for="redis_container_host">Redis 容器地址</label><input id="redis_container_host" name="redis_container_host" value="{$defaults.redis_container_host}" required><p class="help">Compose 默认填写 redis</p></div>
+                <div><label for="redis_port">Redis 端口</label><input id="redis_port" name="redis_port" type="number" min="1" max="65535" value="{$defaults.redis_port}" required></div>
+                <div><label for="redis_db">Redis 数据库</label><input id="redis_db" name="redis_db" type="number" min="0" max="15" value="{$defaults.redis_db}" required></div>
+                <div><label for="redis_username">Redis 用户名（可选）</label><input id="redis_username" name="redis_username" placeholder="default"></div>
+                <div><label for="redis_password">Redis 密码（可选）</label><input id="redis_password" name="redis_password" type="password"></div>
+                <div class="full"><button type="button" id="test">测试数据库和 Redis</button><div id="test-result" class="result" role="status"></div></div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="card-head"><h2>3. 站点与管理员</h2><p class="help">服务密钥将在安装时自动随机生成。</p></div>
+            <div class="card-body grid">
+                <div class="full"><label for="site_url">站点地址</label><input id="site_url" name="site_url" type="url" value="{$defaults.site_url}" placeholder="https://example.com" required></div>
+                <div class="full"><label for="admin_username">管理员用户名</label><input id="admin_username" name="admin_username" minlength="3" maxlength="32" required></div>
+                <div><label for="admin_password">管理员密码</label><input id="admin_password" name="admin_password" type="password" minlength="10" maxlength="72" required></div>
+                <div><label for="admin_password_confirm">确认管理员密码</label><input id="admin_password_confirm" name="admin_password_confirm" type="password" minlength="10" maxlength="72" required></div>
+                <div class="full"><div id="install-result" class="result" role="alert"></div></div>
+            </div>
+            <div class="actions"><span class="help">安装完成后向导将自动锁定</span><button type="submit" class="primary" {if !$ready}disabled{/if}>开始安装</button></div>
+        </section>
+    </form>
+</main>
+<script>
+const form=document.querySelector('#installer'),testButton=document.querySelector('#test'),submitButton=form.querySelector('[type=submit]');
+function show(id,message,ok){const el=document.querySelector(id);el.textContent=message;el.className='result show '+(ok?'success':'error')}
+async function post(url){const response=await fetch(url,{method:'POST',body:new FormData(form),headers:{'X-Requested-With':'XMLHttpRequest'}});let data;try{data=await response.json()}catch(e){throw new Error('服务器返回格式异常')}if(!response.ok&&!data.message)throw new Error('请求失败（'+response.status+'）');return data}
+testButton.addEventListener('click',async()=>{testButton.disabled=true;testButton.textContent='测试中…';try{const data=await post('/install/test');show('#test-result','数据库：'+data.database.message+'\nRedis：'+data.redis.message,data.ok)}catch(e){show('#test-result',e.message,false)}finally{testButton.disabled=false;testButton.textContent='测试数据库和 Redis'}});
+form.addEventListener('submit',async event=>{event.preventDefault();if(!form.reportValidity())return;if(!confirm('确认写入配置并初始化数据库？'))return;submitButton.disabled=true;submitButton.textContent='正在安装…';try{const data=await post('/install');show('#install-result',data.message,data.ok);if(data.ok)setTimeout(()=>location.href=data.redirect||'/',800)}catch(e){show('#install-result',e.message,false);submitButton.disabled=false;submitButton.textContent='开始安装'}});
+</script>
+</body>
+</html>

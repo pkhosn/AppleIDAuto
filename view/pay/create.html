@@ -1,0 +1,8 @@
+<form id="pay-form" action="{$gateway}" method="post">
+    {foreach $params as $key=>$value}
+    <input type="hidden" name="{$key}" value="{$value}">
+    {/foreach}
+</form>
+<script>
+    document.getElementById('pay-form').submit();
+</script>
