@@ -8,6 +8,7 @@ from .panel_client import PanelClient
 from .queue import TaskQueue
 from .notifier import notify_account_event
 from .mail_recovery import BillionMailClient
+from scripts.controlled_recover import load_or_create_escrow, generate_recovery_password
 from scripts.controlled_security_rollback import run_controlled_security_rollback
 from scripts.controlled_email_recovery import run_controlled_email_password_change
 
@@ -36,6 +37,8 @@ class Worker:
             return
         self.store.upsert(account_id, "running", "任务执行中")
         interval = 60
+        escrow_path = None
+        run_info = {}
         try:
             info = await self.panel.task_info(account_id)
             if not info.get("enable", True):
@@ -48,6 +51,22 @@ class Worker:
                 return
             interval = max(int(info.get("check_interval", 60)), 1)
             run_info = dict(info)
+            directory = Path(settings.database_path).parent / 'scheduled-password-escrow'
+            if list(directory.glob(f'account-{account_id}-*.secret')):
+                await self.panel.disable_account(info['username'])
+                message = '存在未核验的改密候选，账号已停用，需人工确认'
+                self.store.upsert(account_id, 'failed', message)
+                self.store.log(account_id, 'run', 'failed', message)
+                return
+            def prepare_password():
+                nonlocal escrow_path
+                if escrow_path is None and list(directory.glob(f'account-{account_id}-*.secret')):
+                    raise RuntimeError('unresolved_password_escrow')
+                escrow_path, candidate = load_or_create_escrow(
+                    directory, account_id, generate_recovery_password,
+                )
+                return candidate
+            run_info['_prepare_password'] = prepare_password
             # 定时检测救援邮箱：发现 Apple 的“恢复以前的安全设置”邮件时，先于登录
             # 检查主动触发关闭双重认证，而不是依赖登录挑战的 two_factor 判定。
             mailbox_rollback = False
@@ -64,6 +83,9 @@ class Worker:
                 elif not ok and error_code in {"password_invalid", "authentication_challenge_unrendered"} and self._email_recovery_available(run_info):
                     ok, message, password, error_code = await self._auto_email_recovery(account_id, run_info)
                     profile_payload = None
+            if escrow_path and run_info.get('_mutation_started') and not ok:
+                await self.panel.disable_account(info['username'])
+                message += '；改密结果需人工确认，候选密码已保留，账号已停用'
             notification_result = await notify_account_event(
                 str(info.get("username") or ""), "自动化任务", ok, message,
                 state=str(error_code or ("normal" if ok else "unknown")),
@@ -93,12 +115,25 @@ class Worker:
                 self.store.log(account_id, "run", "skipped", message)
                 return
             await self.panel.report(info["username"], ok, message, password, profile=profile_payload)
+            if escrow_path and (ok or not run_info.get('_mutation_started')):
+                escrow_path.unlink(missing_ok=True)
             delay = settings.proxy_retry_seconds if error_code == "proxy_error" else interval * 60
             next_run = (datetime.now(timezone.utc) + timedelta(seconds=delay)).isoformat()
             self.store.upsert(account_id, "success" if ok else "failed", message, next_run)
             self.store.set_retry_count(account_id, 0 if ok else 1)
             self.store.log(account_id, "run", "success" if ok else "failed", message)
         except Exception as exc:
+            if escrow_path:
+                # Preserve the candidate even when the report or freeze request
+                # fails. Never automatically replay a possibly submitted change.
+                try:
+                    await self.panel.disable_account(run_info['username'])
+                except Exception:
+                    pass
+                message = '改密流程中断，候选密码已保留，需人工确认'
+                self.store.upsert(account_id, 'failed', message)
+                self.store.log(account_id, 'run', 'failed', message)
+                return
             row = self.store.get(account_id)
             retries = int(row["retry_count"] or 0) + 1 if row else 1
             terminal = retries >= settings.max_retries

@@ -2908,6 +2908,12 @@ class AppleFlow:
             # authoritative and must win over stale explanatory text.
             if self._has_explicit_password_success(text, title, current_url):
                 return True
+            # Read the success modal before classifying any validation copy.
+            # Closed Shadow DOM can hide it from the flattened snapshot while
+            # the accessibility tree already exposes Apple's confirmation.
+            ax_text = self._cdp_ax_text(d) or ""
+            if self._has_explicit_password_success(ax_text):
+                return True
             # The flattened CDP snapshot intentionally includes closed Shadow
             # DOM and iframe text, but it also contains hidden validation copy
             # from Apple's password component.  While the visible modal says

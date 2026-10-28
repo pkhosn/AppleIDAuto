@@ -464,6 +464,28 @@ class CoreTest(unittest.TestCase):
         ):
             self.assertIsNone(flow._confirm_password_change(Driver(), []))
 
+    def test_accessible_success_wins_over_stale_visible_error(self):
+        class Driver:
+            title = "Apple 账户"
+            current_url = "https://account.apple.com/account/manage"
+
+        class ImmediateWait:
+            def __init__(self, driver, timeout):
+                self.driver = driver
+
+            def until(self, condition):
+                return condition(self.driver)
+
+        flow = AppleFlow()
+        with (
+            patch.object(flow, '_login_snapshot', return_value=(None, 'dormant validation')),
+            patch.object(flow, '_cdp_ax_text', return_value='你的密码已更改。'),
+            patch.object(flow, '_visible_page_text', return_value='无法更改密码') as visible,
+            patch('selenium.webdriver.support.ui.WebDriverWait', ImmediateWait),
+        ):
+            self.assertIsNone(flow._confirm_password_change(Driver(), []))
+            visible.assert_not_called()
+
     def test_password_confirmation_ignores_hidden_error_while_update_is_loading(self):
         class Driver:
             title = "Apple 账户"
