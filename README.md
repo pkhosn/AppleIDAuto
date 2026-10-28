@@ -48,6 +48,7 @@ cd /opt/appleid
 | --- | --- |
 | [部署指南](docs/deployment.md) | 通用与宝塔安装、Nginx、数据库、Redis、构建和服务启动 |
 | [配置指南](docs/configuration.md) | 密钥对应关系、代理、验证码、邮件恢复与支付 |
+| [自动化功能与排错指南](docs/automation-guide.md) | 面向使用者的功能说明、运行逻辑、界面操作和异常处理 |
 | [运维指南](docs/operations.md) | 升级迁移、备份、故障排查和已知限制 |
 | [开发指南](docs/development.md) | 目录、接口边界、本地开发、测试和贡献 |
 | [独立周期说明](automation-server/INDEPENDENT_SCHEDULES.md) | v4 配置、开关、调度和待核验处理 |
