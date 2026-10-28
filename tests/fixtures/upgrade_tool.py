@@ -107,6 +107,18 @@ elif name == "docker":
             state_path.write_text(json.dumps(dict.fromkeys(state, True)))
         elif operation in {"exec", "run"}:
             script = sys.stdin.read()
+            if operation == "exec" and "-c" in options:
+                # Run the real health code only against the disposable loopback HTTP fixture.
+                code = options[options.index("-c") + 1]
+                assert "panel-api-ok" in code
+                env_file = Path(args[args.index("--env-file") + 1])
+                for line in env_file.read_text().splitlines():
+                    if "=" in line and not line.lstrip().startswith("#"):
+                        key, value = line.split("=", 1)
+                        os.environ[key.strip()] = value.strip()
+                from urllib.parse import urlsplit
+                assert urlsplit(os.environ["PANEL_URL"]).hostname == "127.0.0.1"
+                os.execv(sys.executable, [sys.executable, "-B", "-c", code])
             if "check_database" not in script:
                 fail("health")
                 sys.exit(0)

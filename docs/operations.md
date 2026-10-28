@@ -24,6 +24,8 @@ bash upgrade.sh --check
 bash upgrade.sh
 ```
 
+已有调度服务通过受限内网 HTTP API 连接管理站时，可保留该 `PANEL_URL`；升级脚本不会要求这类入口开放前端路由或经过公网 CDN。内网地址范围与健康检查方式见[部署指南](deployment.md)。公网 HTTP 地址仍会被拒绝。
+
 `--check` 只检查本地环境、工作区、配置和当前任务状态，不拉取、构建、备份、迁移或重启服务；会使用 Git 目录中的并发锁。调度容器需正在运行才能完成此只读检查。正常升级支持对本脚本中断后已停止的服务进行重试，检查时可启动仅执行只读探针的临时容器，不启动调度器。
 
 旧驱动的 `/health` 如缺少 `running` 计数，检查会返回 `driver_idle_status_unavailable`。此时先在后台确认全部任务和邮件恢复确已结束，再在 `automation-server/` 执行 `docker compose stop account-driver`，回到项目根目录重新检查和升级。脚本不会仅凭队列为空就推断旧驱动空闲；新驱动健康接口会同时返回排队数和执行数。

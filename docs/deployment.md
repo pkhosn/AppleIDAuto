@@ -80,6 +80,8 @@ nginx -t
 
 保存成功后，确认 `automation-server/.env` 中的 `PANEL_URL` 指向调度容器实际能访问的管理站地址，通常是前面配置的 HTTPS 域名。默认虚拟主机未必能通过 `host.docker.internal` 正确访问；容器连接还需满足 DNS、TLS 和 Nginx `server_name` 配置。字段对应关系见[配置指南](configuration.md)。
 
+`PANEL_URL` 是调度服务访问管理站的地址。公网入口应使用 HTTPS；已有仅向 Docker 网络开放、带访问限制的 HTTP API 入口时，可以保留其内网根地址。升级检查接受 `host.docker.internal`、localhost、回环地址和 RFC1918 私网 IPv4 的 HTTP 根地址，拒绝公网 HTTP、路径、凭据、查询参数和片段。内网入口无需开放前端页面，但必须支持带 `key` 认证头的 `POST /api/check_api`。升级后的内网健康检查从调度容器执行，不跟随重定向、不输出密钥；HTTPS 部署继续检查公开 bootstrap 接口。不要只为通过检查把有效的内网地址改成可能受 CDN 规则拦截的公网地址。
+
 向导会将配置文件权限设为 `0600`。运行 Compose 的用户需要有权限读取自动化配置；不要因此把配置改成所有用户都可读。
 
 安装向导会创建首个管理员，无需开启公开注册。如果要在已有数据库中添加管理员，可运行 `php think register <用户名> <密码>`。密码会出现在命令历史和进程参数中，请只在受控终端使用。公开注册需在后台“注册与安全”中配置，不能通过遗留的 `ENABLE_REGISTER` 环境项开启。

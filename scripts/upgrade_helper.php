@@ -10,14 +10,14 @@ function ensure(bool $condition, string $message): void
     if (!$condition) throw new UpgradeError($message);
 }
 
-function command(array $arguments): string
+function command(array $arguments, string $failure = 'Git 检查失败'): string
 {
     $process = proc_open($arguments, [0 => ['file', '/dev/null', 'r'],
         1 => ['pipe', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes);
     ensure(is_resource($process), '无法启动检查命令');
     $output = stream_get_contents($pipes[1]);
     fclose($pipes[1]);
-    ensure(proc_close($process) === 0, 'Git 检查失败');
+    ensure(proc_close($process) === 0, $failure);
     return (string)$output;
 }
 
@@ -102,6 +102,26 @@ function workspace(string $root, string $statePath, bool $normalize = false): vo
     git($root, ['restore', '--source=HEAD', '--worktree', '--', 'public/control-app', 'public/react-preview']);
 }
 
+function panelUrl(string $value): array
+{
+    $url = parse_url($value);
+    $valid = filter_var($value, FILTER_VALIDATE_URL) !== false && is_array($url)
+        && !empty($url['host']) && in_array($url['path'] ?? '', ['', '/'], true)
+        && !isset($url['user']) && !isset($url['pass']) && !isset($url['query']) && !isset($url['fragment']);
+    $scheme = strtolower((string)($url['scheme'] ?? ''));
+    $host = strtolower(trim((string)($url['host'] ?? ''), '[]'));
+    $internal = in_array($host, ['localhost', 'host.docker.internal', '::1'], true);
+    if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+        [$first, $second] = array_map('intval', explode('.', $host));
+        $internal = $first === 127 || $first === 10 || ($first === 172 && $second >= 16 && $second <= 31)
+            || ($first === 192 && $second === 168);
+    }
+    ensure($valid && ($scheme === 'https' || ($scheme === 'http' && $internal))
+        && (!isset($url['port']) || $url['port'] > 0),
+        'PANEL_URL 必须为 HTTPS 根地址，或本机/私网 HTTP 根地址；不能包含路径、凭据或查询参数');
+    return $url;
+}
+
 function configuration(string $root): array
 {
     $panel = parse_ini_file($root . '/.env', true, INI_SCANNER_RAW);
@@ -125,10 +145,7 @@ function configuration(string $root): array
         '两端服务令牌不一致');
     ensure(rtrim((string)($automation['ACCOUNT_DRIVER_URL'] ?? ''), '/') === 'http://account-driver:3940',
         '自动升级仅支持本项目 Compose 内置驱动');
-    $url = parse_url((string)($automation['PANEL_URL'] ?? ''));
-    ensure(is_array($url) && ($url['scheme'] ?? '') === 'https' && !empty($url['host'])
-        && in_array($url['path'] ?? '', ['', '/'], true) && !isset($url['user']) && !isset($url['pass'])
-        && !isset($url['query']) && !isset($url['fragment']), 'PANEL_URL 必须为管理站 HTTPS 根地址');
+    panelUrl((string)($automation['PANEL_URL'] ?? ''));
     return [$panel, $automation];
 }
 
@@ -186,6 +203,43 @@ function deploy(string $root, string $stage, string $statePath): void
 function bootstrap(string $root): void
 {
     [, $automation] = configuration($root);
+    if (strtolower((string)parse_url($automation['PANEL_URL'], PHP_URL_SCHEME)) === 'http') {
+        // Docker-only API listeners may expose /api/ without the public SPA routes.
+        // Read credentials from the container environment, never command arguments.
+        $script = <<<'PYTHON'
+import json
+import os
+import sys
+import urllib.request
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+try:
+    request = urllib.request.Request(
+        os.environ['PANEL_URL'].rstrip('/') + '/api/check_api',
+        data=b'', method='POST', headers={'key': os.environ['PANEL_API_KEY']},
+    )
+    opener = urllib.request.build_opener(NoRedirect())
+    with opener.open(request, timeout=15) as response:
+        body = response.read(65537)
+        if response.status != 200 or len(body) > 65536:
+            raise ValueError()
+        data = json.loads(body)
+    if not isinstance(data, dict) or data.get('code') != 200 or not isinstance(data.get('version'), int) or data['version'] < 3:
+        raise ValueError()
+except Exception:
+    sys.exit(1)
+print('panel-api-ok')
+PYTHON;
+        $message = '内网 PHP API 健康检查失败，请检查 Docker 内网入口和服务令牌';
+        $output = command(['docker', 'compose', '--project-directory', $root . '/automation-server',
+            '--env-file', $root . '/automation-server/.env', '-f', $root . '/automation-server/docker-compose.yml',
+            'exec', '-T', 'automation-server', 'python', '-B', '-c', $script], $message);
+        ensure(trim($output) === 'panel-api-ok', $message);
+        return;
+    }
     $handle = curl_init(rtrim($automation['PANEL_URL'], '/') . '/frontend-api/v1/bootstrap');
     curl_setopt_array($handle, [CURLOPT_RETURNTRANSFER => true, CURLOPT_CONNECTTIMEOUT => 5, CURLOPT_TIMEOUT => 15,
         CURLOPT_HTTPHEADER => ['Accept: application/json', 'Cache-Control: no-cache'], CURLOPT_FOLLOWLOCATION => false]);
