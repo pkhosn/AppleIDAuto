@@ -2,6 +2,8 @@
 
 用户端、管理员端和登录注册界面使用 React、TypeScript 与 Vite。ThinkPHP 负责业务、Session、支付和公开分享页面；管理员正式路径由 bootstrap 配置返回。
 
+用户“消息推送”页面配置 Telegram 任务结果通知与人工验证码所需的 Bot Token、Chat ID；救援邮箱和 IMAPS 凭据在账号编辑页配置。功能条件见[配置指南](../docs/configuration.md)。
+
 ## 构建
 
 在本目录使用 Node.js 22：

@@ -10,7 +10,8 @@ Linux 下的独立浏览器驱动服务，通过 Selenium Chromium 执行账号�
 
 | 接口 | 用途 |
 | --- | --- |
-| `POST /check`、`POST /recover` | 状态检查与受控恢复 |
+| `POST /check` | 登录状态检查；携带资料恢复配置时执行对应检测与恢复 |
+| `POST /recover` | 通过出生日期和密保问题执行受控密码恢复 |
 | `POST /update_password`、`POST /delete_devices` | 改密与实际移除设备，空设备列表也可成功 |
 | `POST /workflow` | 复合步骤；调度侧默认不开启 |
 | `POST /request_email_reset`、`POST /complete_email_reset`、`POST /complete_security_rollback` | 受控邮件恢复流程 |
@@ -20,6 +21,8 @@ Linux 下的独立浏览器驱动服务，通过 Selenium Chromium 执行账号�
 | `POST /jobs/{job_id}/captcha/{challenge_id}/answer` | 提交人工答案 |
 
 提交操作会返回一个异步任务。调用方需要轮询任务状态，直到拿到执行结果。内部通信日志不会记录凭据；调用方也应避免打印完整请求或结果。
+
+调度服务负责读取账号救援邮箱和校验恢复邮件，驱动负责打开已校验的链接并执行页面操作。具体恢复条件见[配置指南](../docs/configuration.md#邮件恢复)。
 
 ## 隔离与清理
 

@@ -10,7 +10,7 @@
 
 安装 Nginx、PHP 8.2 与 PHP-FPM、Composer 2、MySQL、Docker Engine、Docker Compose 插件、Node.js 22 和 npm。PHP CLI 与 PHP-FPM 均需启用 `pdo`、`pdo_mysql`、`curl`、`json`、`openssl`、`mbstring`、`dom`，并允许 `fsockopen`。
 
-锁定的 PHP 依赖至少要求 PHP 8.0。根目录的 `composer.json` 和安装向导仍保留较低版本预检，因此不能据此使用 PHP 7.4。可运行 `composer check-platform-reqs` 检查依赖的实际要求。
+以下步骤使用 PHP 8.2。安装依赖后运行 `composer check-platform-reqs` 检查 PHP 和扩展是否满足要求。
 
 先按 [README 中的拉取命令](../README.md#安装与文档)将项目克隆到 `/opt/appleid`。站点运行目录必须为 `/opt/appleid/public`。仅公开 Nginx 的 HTTP/HTTPS 端口，数据库和容器服务保留在可信网络。以下命令从项目根目录执行：
 
@@ -84,7 +84,7 @@ nginx -t
 
 向导会将配置文件权限设为 `0600`。运行 Compose 的用户需要有权限读取自动化配置；不要因此把配置改成所有用户都可读。
 
-安装向导会创建首个管理员，无需开启公开注册。如果要在已有数据库中添加管理员，可运行 `php think register <用户名> <密码>`。密码会出现在命令历史和进程参数中，请只在受控终端使用。公开注册需在后台“注册与安全”中配置，不能通过遗留的 `ENABLE_REGISTER` 环境项开启。
+安装向导会创建首个管理员，无需开启公开注册。如果要在已有数据库中添加管理员，可运行 `php think register <用户名> <密码>`。密码会出现在命令历史和进程参数中，请只在受控终端使用。公开注册需在后台“注册与安全”中配置。
 
 ## 5. 启动并检查服务
 

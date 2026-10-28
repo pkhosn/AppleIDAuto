@@ -20,6 +20,7 @@
 ## 接口边界
 
 - `/frontend-api/v1/*` 面向 React，基于 PHP Session。响应统一为 `success/data/message/errors/meta`，写操作使用 bootstrap 返回的 CSRF 令牌。管理员权限由后端检查，前端路径不是权限边界。
+- 消息推送通过 `GET/POST /frontend-api/v1/notifications` 读取和保存所属用户的 Telegram 配置；救援邮箱通过账号编辑接口按账号保存，`POST /frontend-api/v1/mailbox/test` 检查表单中的 IMAPS 配置。
 - `/api/*` 面向调度服务，接受 POST 并校验 `key` 请求头，与浏览器 Session API 分开。
 - `/shareapi/v2/resolve` 是公开分享解析入口；`/share/*` 提供 PHP 分享页。
 - `/pay/*` 的支付与回调约束见配置指南。支付结果以验签通知和数据库状态为准。
@@ -51,6 +52,8 @@ npm run build:production --prefix frontend
 ## 回归检查
 
 先安装 Composer 依赖，再从仓库根目录运行主站回归。常规回归使用模拟对象。不要用真实 Apple 账号运行受控恢复脚本。
+
+邮件签名测试需要 OpenSSL CLI（支持 `genrsa -traditional`），测试运行时在内存中生成临时 RSA 密钥。纯源码检出时，前端产物检查会跳过；执行正式版构建后可验证产物。
 
 ```bash
 python3 -m unittest discover -s tests -p 'test_*.py' -v
@@ -119,6 +122,3 @@ Python 审计需另行安装 `pip-audit`。已知依赖限制见[运维指南](o
 提交修改时，请说明修复的问题、行为变化和验证方法。涉及数据库时，同时提供可重复执行的迁移和隔离验证。更新相关文档；公共说明集中维护，其他页面通过链接引用。修复权限、支付、密码回写或超时问题时，补充能复现缺陷的回归测试。
 
 保留上游版权与许可，不提交 `.env`、数据库、备份、真实账号、邮件原文或敏感截图。报告安全问题时先使用目标仓库已配置的私密渠道；没有确认的仓库地址、维护者身份或联系邮箱不写入文档。项目许可见 [LICENSE](../LICENSE)。
-
-
-邮件签名测试需要 OpenSSL CLI（支持 `genrsa -traditional`），测试运行时仅在内存中临时生成 RSA 密钥，不在源码中保存密钥文件。纯源码检出时，前端产物检查会跳过；先执行 `npm run build:production --prefix frontend` 后可验证正式版产物。

@@ -25,7 +25,7 @@ php think mailbox:key --show
 
 命令输出为秘密，只写入对应配置并安全保存。已有密文时保留原密钥；生成新密钥不能修复丢失的旧密钥。令牌变更需同步两端并重新创建相关容器；AES 密钥不能当作服务令牌轮换。
 
-`[DATABASE]` 配置宿主机 PHP 的 MySQL 连接，`REDIS_URL` 配置容器的 Redis 连接。`DATABASE_PATH=/data/tasks.sqlite3` 是调度状态库，与主站 MySQL 不同。根 `.env` 的 `WEBDRIVER` 等字段仅为旧接口兼容，当前驱动实际使用 Compose 的 `SELENIUM_URL`。
+`[DATABASE]` 配置宿主机 PHP 的 MySQL 连接，`REDIS_URL` 配置容器的 Redis 连接。`DATABASE_PATH=/data/tasks.sqlite3` 是调度状态库，与主站 MySQL 不同。浏览器驱动通过 Compose 的 `SELENIUM_URL` 连接 Selenium。
 
 ## 任务开关、并发与超时
 
@@ -46,7 +46,7 @@ php think mailbox:key --show
 
 ## 静态代理与提取来源
 
-保留静态代理管理和提取链接来源，动态 IP 池功能已移除。根配置 `ENABLE_PROXY_POOL=false` 表示默认不启用托管代理分配。
+在“代理网络”页面管理静态 IP 和自动提取源。根配置 `ENABLE_PROXY_POOL=false` 表示默认不启用托管代理分配。
 
 在代理页面配置节点或提取来源，并设置协议、认证、绑定数量和启停状态。没有适用的启用节点时，任务可以直连；如果已启用的节点都不健康或没有容量，要求代理的任务会暂停并返回 `proxy_unavailable`。普通任务、复合任务和只读核验都会在执行前检查账号是否启用及代理要求。仅密码回写的恢复流程不会访问 Apple。
 
@@ -54,15 +54,17 @@ php think mailbox:key --show
 
 默认连续失败阈值为 3、冷却 1800 秒、健康检查周期 300 秒；提取来源默认刷新 600 秒。来源地址和返回端点受大小、数量及公网地址校验限制，默认拒绝回环、私有和链路本地来源。排查连接错误时先区分来源抓取、节点健康和 Apple 目标连通性。
 
-## 验证码与 Telegram
+## Telegram 推送与验证码
 
-驱动先尝试 OCR，不能自动通过时可等待人工答案。账号需配置 Telegram Bot Token 和 Chat ID，调度服务会把挑战图片发到对应聊天。人工直接回复该图片，输入 4–8 位英文字母或数字；旧挑战失效后应回复新图片。
+在用户工作台的“消息推送”中配置 Telegram Bot Token 和 Chat ID，并选择仅推送成功、仅推送失败或成功和失败都推送。两项凭据必须同时填写，清空任意一项可停止任务结果通知；结果筛选不影响人工验证码交互。
+
+驱动先尝试 OCR，不能自动通过时可等待人工答案。调度服务使用账号所属用户的 Telegram 配置，将挑战图片发到对应聊天。人工直接回复该图片，输入 4–8 位英文字母或数字；旧挑战失效后应回复新图片。
 
 `CAPTCHA_HUMAN_TIMEOUT=180` 为每次等待秒数，`CAPTCHA_HUMAN_ATTEMPTS=3` 为人工尝试次数，`TELEGRAM_POLL_TIMEOUT=25` 为长轮询时限。同一 Bot 的挑战按回复消息 ID 隔离。Bot 应专用于本服务，不同时配置 webhook 或让其他程序消费 `getUpdates`。账号没有可用人工通道时，挑战不能保证完成。
 
 ## 邮件恢复
 
-账号编辑页可配置救援邮箱、IMAPS 主机、端口和凭据；账号也可以继承用户的默认邮箱配置。服务通过标准 IMAPS 连接邮箱，界面中的 BillionMail 配置也是如此。PHP 会加密保存邮箱密码，但有权限的编辑界面和执行流程仍会使用解密后的凭据，因此应限制管理员权限。
+在账号编辑页配置该账号的救援邮箱、IMAPS 主机、端口和凭据，并选择允许的邮件恢复方式。服务通过标准 IMAPS 连接邮箱，页面中的“测试连通性”检查当前填写的登录信息和收件箱只读访问。PHP 会加密保存邮箱密码，但有权限的编辑界面和执行流程仍会使用解密后的凭据，因此应限制管理员权限。
 
 自动恢复与管理员手动恢复使用不同入口：
 
@@ -70,7 +72,7 @@ php think mailbox:key --show
 - 管理员可在“邮件恢复”页面选择账号、确认并发起受控恢复。发起前必须保存并禁用账号、自动改密和设备操作，并启用对应的邮件恢复方式；入口记录进度和结果，不等同于“运行到期项”。
 - `scripts/controlled_email_recovery.py` 和 `scripts/controlled_security_rollback.py` 提供高级 CLI 入口，有明确的一次性确认参数；仅在理解脚本前置条件后使用。直连探测还需要脚本要求的额外确认。
 
-两种入口都必须通过邮件校验：邮件须带有验证有效的 Apple 域 DKIM 签名，且签名域需与 Apple 发件域对齐；系统还会检查收件人、操作类型、时效和 Apple HTTPS 链接。任意 `Authentication-Results` 文本都不能作为可信证据。签名损坏、DNS 查询失败或邮件内容不明确时，恢复会停止并返回错误；账号保持冻结，等待核查。
+上述恢复流程都必须通过邮件校验：邮件须带有验证有效的 Apple 域 DKIM 签名，且签名域需与 Apple 发件域对齐；系统还会检查收件人、操作类型、时效和 Apple HTTPS 链接。任意 `Authentication-Results` 文本都不能作为可信证据。签名损坏、DNS 查询失败或邮件内容不明确时，恢复会停止并返回错误；账号保持冻结，等待核查。
 
 ## 注册、管理入口与支付
 
@@ -86,7 +88,7 @@ php think mailbox:key --show
 | `GET /pay/notify` | 服务端验签回调，校验订单和金额后幂等发放 |
 | `GET /pay/return` | 浏览器支付返回页面，不能替代服务端通知 |
 
-前三项需要登录和 CSRF；回调依赖签名。配置站点 HTTPS 地址，确保网关能访问 `/pay/notify`。项目没有实现完整网关开放平台协议，不提供退款、结算或网关订单查询接口。对接字段和签名以 [PaymentService.php](../app/service/PaymentService.php)、[PayController.php](../app/controller/PayController.php) 为准，使用网关沙箱验证，勿用真实充值作为文档检查。
+前三项需要登录和 CSRF；回调依赖签名。配置站点 HTTPS 地址，确保网关能访问 `/pay/notify`。对接字段和签名以 [PaymentService.php](../app/service/PaymentService.php)、[PayController.php](../app/controller/PayController.php) 为准，使用网关沙箱验证，勿用真实充值作为文档检查。
 
 管理站向网关提交 `pid`、`type`、`out_trade_no`、`notify_url`、`return_url`、`name`、`money`、`param`、`sign_type=MD5` 和 `sign`。生成签名时，先按参数名排序，排除 `sign`、`sign_type`、空字符串和 null 值，再将参数拼成 `key=value` 并用 `&` 连接。最后直接追加商户密钥并计算 MD5。
 

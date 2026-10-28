@@ -9,9 +9,10 @@ An Apple ID management and automation tool built with ThinkPHP, React, and Selen
 ## Features
 
 - User and administrator dashboards for account management, enabling and disabling accounts, task status, execution logs, and account credentials.
-- Account status and password checks, profile restoration, device removal, and scheduled password changes. Each feature can be enabled per account and assigned its own schedule.
-- Controlled email-based password recovery, security settings rollback, OCR, and human CAPTCHA assistance through Telegram. Recovery depends on account configuration, email signature verification, and the state of Apple's pages; it may not succeed for every account.
-- Static proxy management, proxy sources, health checks, and proxy assignment to accounts. The dynamic IP pool has been removed.
+- Account status and password checks, restoration of configured profile values, device removal, and scheduled password changes. Each feature can be enabled per account; separate schedules are available when independent scheduling is enabled.
+- Controlled password recovery and security settings rollback through the account's rescue mailbox. Recovery depends on account configuration, valid Apple recovery emails, signature verification, and the state of Apple's pages.
+- OCR and human CAPTCHA assistance through Telegram. Telegram task result notifications can include successes, failures, or both.
+- Static proxy management, proxy sources, health checks, and proxy assignment to accounts.
 - Sharing pages, sharing groups, templates, access passwords, and expiration dates.
 - Subscription plans, balance top-ups, resuming unpaid orders, and redemption codes. Online payments require a compatible Epay gateway.
 
@@ -31,7 +32,7 @@ Nginx handles HTTPS and frontend routing, and PHP-FPM runs the management panel.
 ## Requirements
 
 - Linux, Docker Engine, and the Docker Compose plugin.
-- PHP 8.0 or later; PHP 8.2 is recommended. The locked dependencies require a newer version than the legacy PHP 7.4 requirement in the root Composer manifest. See the deployment guide for required extensions and installation details.
+- PHP 8.2; see the deployment guide for required extensions and installation details.
 - MySQL with `utf8mb4`, Nginx, and PHP-FPM. CI uses MySQL 8.4.
 - Node.js 22 and npm to build the frontend. The Python services run in Python 3.12 containers.
 - Network access to Apple, the configured email services, and proxy sources. Selenium is configured with 2 GB of shared memory; allow additional resources for the other services.
