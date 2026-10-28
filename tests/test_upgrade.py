@@ -149,6 +149,36 @@ class UpgradeTest(unittest.TestCase):
         self.assertEqual(2, len((self.base / "migrations").read_text().splitlines()))
         self.assertEqual(2, len(self.backups()))
 
+    def test_source_only_checkout_can_upgrade_and_repeat(self):
+        self.git(self.root, "fetch", "origin", "main")
+        self.git(self.root, "merge", "--ff-only", self.target)
+        self.git(self.root, "rm", "-r", "public/control-app", "public/react-preview")
+        with (self.root / ".gitignore").open("a") as output:
+            output.write("/public/control-app/\n/public/react-preview/\n")
+        self.git(self.root, "add", ".gitignore")
+        self.git(self.root, "commit", "-m", "fixture source-only distribution")
+        self.git(self.root, "push", "origin", "main")
+        self.before = self.git(self.root, "rev-parse", "HEAD").strip()
+        for directory in ["public/control-app", "public/react-preview"]:
+            path = self.root / directory
+            path.mkdir(parents=True)
+            (path / "index.html").write_text("generated initial frontend")
+        state = self.root / ".git/appleid-upgrade-artifacts.json"
+        subprocess.run([self.environment["REAL_PHP"], str(self.root / "scripts/upgrade_helper.php"),
+                        str(self.root), "record-artifacts", str(state)], check=True, capture_output=True)
+        self.git(self.seed, "fetch", "origin", "main")
+        self.git(self.seed, "merge", "--ff-only", self.before)
+        (self.seed / "app.txt").write_text("updated source-only release")
+        self.git(self.seed, "commit", "-am", "fixture next source release")
+        self.git(self.seed, "push", "origin", "main")
+        self.target = self.git(self.seed, "rev-parse", "HEAD").strip()
+        for _ in range(2):
+            result = self.run_upgrade()
+            self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+            self.assert_head(self.target)
+            self.assertIn("fixture build:production", (self.root / "public/control-app/index.html").read_text())
+            self.assertEqual("keep installation", (self.root / "runtime/install.lock").read_text())
+
     def test_check_does_not_fetch_build_backup_or_stop(self):
         result = self.run_upgrade("--check")
         self.assertEqual(0, result.returncode, result.stdout + result.stderr)

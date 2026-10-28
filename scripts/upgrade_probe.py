@@ -19,17 +19,27 @@ def require(condition, message):
 def check_database(connection):
     checks = {
         "tasks": "status IN ('pending','queued','running','reporting','reconciling','uncertain')",
-        "feature_schedule": "result IN ('running','uncertain')",
+        "feature_schedule": "result = 'running'",
         "task_runs": "status IN ('queued','running','reporting','reconciling')",
     }
     for table, predicate in checks.items():
         require(not connection.execute(f"SELECT 1 FROM {table} WHERE {predicate} LIMIT 1").fetchone(),
+                "task_active_or_uncertain")
+    # A disabled profile-recovery result can be retained across a code upgrade.
+    # It remains uncertain and must never be rescheduled or marked successful here.
+    cursor = connection.execute("SELECT * FROM feature_schedule WHERE result='uncertain'")
+    names = [column[0] for column in cursor.description]
+    uncertain = [dict(zip(names, row)) for row in cursor.fetchall()]
+    for row in uncertain:
+        require(row.get('feature') == 'profile_restore' and row.get('enabled') == 0
+                and row.get('force_run') == 0 and 'reconcile_at' in row and row['reconcile_at'] is None,
                 "task_active_or_uncertain")
     # Each manual recovery writes a start and a terminal log for its account/kind.
     require(not connection.execute("""SELECT 1 FROM task_logs AS l WHERE l.action IN
         ('email_password_recovery','security_rollback') AND l.status='running'
         AND NOT EXISTS (SELECT 1 FROM task_logs AS n WHERE n.account_id=l.account_id
         AND n.action=l.action AND n.id>l.id) LIMIT 1""").fetchone(), "manual_recovery_active")
+    return len(uncertain)
 
 
 def main():
@@ -41,7 +51,7 @@ def main():
     require(next(client.scan_iter("automation:lock:*", count=100), None) is None, "account_lock_active")
     path = Path(os.environ["DATABASE_PATH"]).resolve()
     with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=5) as connection:
-        check_database(connection)
+        retained_uncertain = check_database(connection)
     require(not any((path.parent / "scheduled-password-escrow").glob("*.secret")),
             "password_writeback_pending")
 
@@ -60,6 +70,8 @@ def main():
         require(grid.get("ready") is True and bool(grid.get("nodes")), "grid_unavailable")
         require(all(not slot.get("session") for node in grid["nodes"] for slot in node["slots"]),
                 "selenium_session_active")
+    if retained_uncertain:
+        print(f"保留 {retained_uncertain} 条已停用的资料恢复待核验记录，未改变结果或恢复任务。")
     print("任务、恢复锁、队列和浏览器均空闲。")
 
 

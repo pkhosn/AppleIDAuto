@@ -67,7 +67,7 @@ elif name == "npm":
         fail(mode)
         source = Path(args[args.index("--prefix") + 1]).parent
         destination = source / "public" / ("control-app" if mode == "build:production" else "react-preview")
-        (destination / "assets").mkdir(exist_ok=True)
+        (destination / "assets").mkdir(parents=True, exist_ok=True)
         (destination / "index.html").write_text(f"fixture {mode} from staged source")
         (destination / "assets/built.js").write_text("fixture build output")
 elif name == "docker":

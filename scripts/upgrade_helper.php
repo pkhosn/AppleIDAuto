@@ -99,7 +99,9 @@ function workspace(string $root, string $statePath, bool $normalize = false): vo
     foreach ($files as $path => $_) {
         if (!isset($tracked[$path])) ensure(unlink($root . '/' . $path), '无法清理已登记产物');
     }
-    git($root, ['restore', '--source=HEAD', '--worktree', '--', 'public/control-app', 'public/react-preview']);
+    if ($tracked !== []) {
+        git($root, ['restore', '--source=HEAD', '--worktree', '--', 'public/control-app', 'public/react-preview']);
+    }
 }
 
 function panelUrl(string $value): array
