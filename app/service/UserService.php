@@ -36,7 +36,7 @@ class UserService extends Service
 
     public function getNotifyMethods($id): array
     {
-        $user = User::field('tg_bot_token,tg_chat_id,tg_notify_mode,wx_pusher_id,webhook')
+        $user = User::field('tg_bot_token,tg_chat_id,tg_notify_mode')
             ->where('id', $id)
             ->find();
         $result = $user ? $user->toArray() : null;

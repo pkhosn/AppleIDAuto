@@ -133,12 +133,6 @@ class ApiController extends BaseController
                 $data['tg_chat_id'] = $notify_params['tg_chat_id'];
             }
             $data['tg_notify_mode'] = $notify_params['tg_notify_mode'] ?? 'all';
-            if ($notify_params['wx_pusher_id'] != "") {
-                $data['wx_pusher_id'] = $notify_params['wx_pusher_id'];
-            }
-            if ($notify_params['webhook'] != "") {
-                $data['webhook'] = $notify_params['webhook'];
-            }
         }
         // Disabling every applicable node explicitly selects direct mode. If
         // a node remains enabled but none is healthy, fail closed instead of

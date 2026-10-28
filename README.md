@@ -1,6 +1,6 @@
 # Apple ID 自动化管理
 
-基于 ThinkPHP、React 和 Selenium 的 Apple ID 管理与自动化工具。管理站保存账号、权限和业务数据，独立调度服务管理任务，浏览器驱动执行 Apple 页面操作。
+基于 ThinkPHP、React 和 Selenium 的 Apple ID 管理与自动化工具。管理站保存账号、权限和业务数据，独立调度服务管理任务，浏览器驱动执行 Apple 页面操作。TG交流群:https://t.me/appleidauto01
 
 ## 已实现功能
 

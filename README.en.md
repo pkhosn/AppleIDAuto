@@ -1,6 +1,6 @@
 # Apple ID Automation Management
 
-This source distribution excludes deployment secrets, business data, logs, and generated frontend assets. Configure and build it for your own deployment.
+This source distribution excludes deployment secrets, business data, logs, and generated frontend assets. Configure and build it for your own deployment.TG:https://t.me/appleidauto01
 
 [简体中文](README.md) | English
 

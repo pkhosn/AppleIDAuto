@@ -77,7 +77,7 @@ class User extends Model
                     $update[$field] = $data[$field];
                 }
             }
-            foreach (['tg_bot_token', 'tg_chat_id', 'tg_notify_mode', 'wx_pusher_id', 'webhook'] as $field) {
+            foreach (['tg_bot_token', 'tg_chat_id', 'tg_notify_mode'] as $field) {
                 if (array_key_exists($field, $data)) {
                     $update[$field] = (string)$data[$field];
                 }
@@ -93,7 +93,7 @@ class User extends Model
     {
         $user = $this->where('id', (int)$id)->find();
         if (!$user) return null;
-        foreach (['tg_bot_token', 'tg_chat_id', 'wx_pusher_id', 'webhook', 'vip_expire_at'] as $field) {
+        foreach (['tg_bot_token', 'tg_chat_id', 'vip_expire_at'] as $field) {
             if ($user->$field === null) $user->$field = '';
         }
         if (!in_array((string)$user->tg_notify_mode, ['success', 'failure', 'all'], true)) {

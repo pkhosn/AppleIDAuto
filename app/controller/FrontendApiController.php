@@ -151,8 +151,6 @@ class FrontendApiController extends BaseController
             'tg_bot_token' => (string)($settings['tg_bot_token'] ?? ''),
             'tg_chat_id' => (string)($settings['tg_chat_id'] ?? ''),
             'tg_notify_mode' => (string)($settings['tg_notify_mode'] ?? 'all'),
-            'wx_pusher_id' => (string)($settings['wx_pusher_id'] ?? ''),
-            'webhook' => (string)($settings['webhook'] ?? ''),
         ]);
     }
 
@@ -169,8 +167,6 @@ class FrontendApiController extends BaseController
             'tg_bot_token' => trim((string)$this->request->param('tg_bot_token', '')),
             'tg_chat_id' => trim((string)$this->request->param('tg_chat_id', '')),
             'tg_notify_mode' => $mode,
-            'wx_pusher_id' => trim((string)$this->request->param('wx_pusher_id', '')),
-            'webhook' => trim((string)$this->request->param('webhook', '')),
         ]);
         return $result['status'] ? $this->ok(null, '消息推送设置已保存') : $this->fail($result['msg']);
     }
@@ -903,7 +899,6 @@ class FrontendApiController extends BaseController
         $result = $user->updateUser(['id' => $user->id, 'username' => $username, 'password' => $id ? $password : null,
             'tg_bot_token' => (string)$this->request->param('tg_bot_token', ''), 'tg_chat_id' => (string)$this->request->param('tg_chat_id', ''),
             'tg_notify_mode' => $notifyMode,
-            'wx_pusher_id' => (string)$this->request->param('wx_pusher_id', ''), 'webhook' => (string)$this->request->param('webhook', ''),
             'is_admin' => (bool)$this->request->param('is_admin', false) ? 1 : 0, 'vip_expire_at' => $this->request->param('vip_expire_at') ?: null,
             'max_accounts' => max(0, (int)$this->request->param('max_accounts', 5)), 'min_manual_interval' => max(0, (int)$this->request->param('min_manual_interval', 0)),
             'max_share_pages' => max(0, (int)$this->request->param('max_share_pages', 1)), 'balance' => number_format((float)$this->request->param('balance', 0), 2, '.', ''),

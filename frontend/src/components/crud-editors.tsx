@@ -806,8 +806,6 @@ type UserValues = {
   tg_bot_token: string
   tg_chat_id: string
   tg_notify_mode: "success" | "failure" | "all"
-  wx_pusher_id: string
-  webhook: string
   is_admin: boolean
   status: boolean
   max_accounts: number
@@ -823,8 +821,6 @@ const userDefaults: UserValues = {
   tg_bot_token: "",
   tg_chat_id: "",
   tg_notify_mode: "all",
-  wx_pusher_id: "",
-  webhook: "",
   is_admin: false,
   status: true,
   max_accounts: 5,
@@ -847,8 +843,6 @@ export function UserEditor({ row, onSaved }: { row?: Entity; onSaved: () => void
         tg_bot_token: String(row?.tg_bot_token ?? ""),
         tg_chat_id: String(row?.tg_chat_id ?? ""),
         tg_notify_mode: ["success", "failure", "all"].includes(String(row?.tg_notify_mode)) ? row?.tg_notify_mode as UserValues["tg_notify_mode"] : "all",
-        wx_pusher_id: String(row?.wx_pusher_id ?? ""),
-        webhook: String(row?.webhook ?? ""),
         is_admin: Boolean(row?.is_admin),
         status: Boolean(row?.status),
         max_accounts: Number(row?.max_accounts ?? 5),
@@ -890,8 +884,6 @@ export function UserEditor({ row, onSaved }: { row?: Entity; onSaved: () => void
             <Field label="Telegram Bot Token" type="password" value={values.tg_bot_token} onChange={(tg_bot_token) => setValues((v) => ({ ...v, tg_bot_token }))} />
             <Field label="Telegram Chat ID" value={values.tg_chat_id} onChange={(tg_chat_id) => setValues((v) => ({ ...v, tg_chat_id }))} />
             <div className="space-y-2 sm:col-span-2"><Label>Telegram 任务结果推送</Label><select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={values.tg_notify_mode} onChange={(e)=>setValues(v=>({...v,tg_notify_mode:e.target.value as UserValues["tg_notify_mode"]}))}><option value="all">成功和失败都推送</option><option value="success">仅推送成功消息</option><option value="failure">仅推送失败消息</option></select></div>
-            <Field label="PushPlus Token" value={values.wx_pusher_id} onChange={(wx_pusher_id) => setValues((v) => ({ ...v, wx_pusher_id }))} />
-            <Field label="Webhook 地址" value={values.webhook} onChange={(webhook) => setValues((v) => ({ ...v, webhook }))} />
             <Field
               label="账号配额"
               type="number"
