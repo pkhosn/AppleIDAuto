@@ -36,7 +36,8 @@ class Scheduler:
                 self.features.sync(account_id, item['schedule'], item['enable'], dict(row) if row else None)
                 self._config_revisions[account_id] = revision
             if not item['enable']:
-                self.store.upsert(account_id, 'disabled', '管理站任务已停用')
+                if not row or row['status'] not in {'running', 'failed'}:
+                    self.store.upsert(account_id, 'disabled', '管理站任务已停用')
                 await self.queue.remove(account_id)
             elif not row or row['status'] != 'running':
                 if self.features.due(account_id) or self.features.reconciliation_due(account_id):

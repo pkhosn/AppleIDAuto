@@ -149,7 +149,10 @@ async def schedule_status(payload: TaskRequest, token: str | None = Header(defau
 async def remove(payload: TaskRequest, token: str | None = Header(default=None)):
     auth(token)
     await queue.remove(payload.id)
-    store.upsert(payload.id, "disabled", "任务已禁用")
+    row = store.get(payload.id)
+    # Freezing disables future scheduling; the in-flight recovery still owns its result.
+    if not row or row['status'] != 'running':
+        store.upsert(payload.id, "disabled", "任务已禁用")
     store.log(payload.id, "disable", "success", "任务已禁用")
     return {"status": True, "msg": "任务已禁用"}
 

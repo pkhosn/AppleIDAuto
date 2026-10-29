@@ -14,6 +14,20 @@ class AutomationTaskService extends Service
         $this->app->bind('automationTaskService', AutomationTaskService::class);
     }
 
+    /** Keep scheduling enablement separate from the currently executing recovery. */
+    public static function withRuntimeState(array $account, ?array $state): array
+    {
+        if (!$state || (int)($state['account_id'] ?? 0) !== (int)$account['id']
+            || !in_array($state['status'] ?? '', ['pending', 'running', 'success', 'failed', 'disabled'], true)) return $account;
+        $account['task_status'] = $state['status'];
+        $account['task_message'] = (string)($state['message'] ?? '');
+        $account['message'] = $account['task_message'];
+        $account['task_retry_count'] = (int)($state['retry_count'] ?? 0);
+        $next = !empty($state['next_run_at']) ? strtotime((string)$state['next_run_at']) : false;
+        $account['task_next_run_at'] = !empty($account['enable']) && $next !== false ? date('Y-m-d H:i:s', $next) : null;
+        return $account;
+    }
+
     public function fetchByOwner(int $owner, int $perPage = 25)
     {
         return Db::name('account')

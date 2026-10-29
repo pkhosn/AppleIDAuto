@@ -28,6 +28,23 @@ class ManualRecoveryApiTest(unittest.TestCase):
         api.manual_recovery_runs.clear()
         api.manual_recovery_accounts.clear()
 
+    def test_freezing_running_task_preserves_execution_until_final_result(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = TaskStore(str(Path(directory) / 'state.sqlite3'))
+            store.upsert(1, 'running', '正在等待恢复邮件')
+            queue = type('Queue', (), {'remove': AsyncMock()})()
+            with patch.object(api, 'store', store), patch.object(api, 'queue', queue):
+                asyncio.run(api.remove(api.TaskRequest(id=1), api.settings.token))
+                self.assertEqual(store.get(1)['status'], 'running')
+                self.assertEqual(store.get(1)['message'], '正在等待恢复邮件')
+                queue.remove.assert_awaited_once_with(1)
+                store.upsert(1, 'failed', 'recovery_email_timeout')
+                self.assertEqual(store.get(1)['status'], 'failed')
+                store.upsert(2, 'pending', '等待执行')
+                asyncio.run(api.remove(api.TaskRequest(id=2), api.settings.token))
+                self.assertEqual(store.get(2)['status'], 'disabled')
+            store.db.close()
+
     def test_retired_dynamic_pool_endpoints_return_not_found(self):
         app = FastAPI()
         app.include_router(api.router)

@@ -175,7 +175,10 @@ class FrontendApiController extends BaseController
     {
         $perPage = $this->perPage();
         $p = $this->adminScope() ? $this->app->accountService->fetchAll($perPage) : $this->app->accountService->fetchByOwner((int)$this->user()['id'], $perPage);
-        [$items, $meta] = $this->page($p, fn($row) => $this->safeAccount((array)$row));
+        $states = $this->app->backendService->taskStates();
+        [$items, $meta] = $this->page($p, fn($row) => $this->safeAccount(
+            \app\service\AutomationTaskService::withRuntimeState((array)$row, $states[(int)$row['id']] ?? null)
+        ));
         return $this->ok($items, '获取成功', $meta);
     }
 
@@ -421,7 +424,10 @@ class FrontendApiController extends BaseController
         $filters = ['status' => (string)$this->request->param('status', ''), 'keyword' => (string)$this->request->param('keyword', ''), 'owner' => (string)$this->request->param('owner', '')];
         $perPage = $this->perPage();
         $p = $this->adminScope() ? $this->app->automationTaskService->fetchAll($filters, $perPage) : $this->app->automationTaskService->fetchByOwner((int)$this->user()['id'], $perPage);
-        [$items, $meta] = $this->page($p, fn($row) => $this->safeAccount((array)$row)); return $this->ok($items, '获取成功', $meta);
+        $states = $this->app->backendService->taskStates();
+        [$items, $meta] = $this->page($p, fn($row) => $this->safeAccount(
+            \app\service\AutomationTaskService::withRuntimeState((array)$row, $states[(int)$row['id']] ?? null)
+        )); return $this->ok($items, '获取成功', $meta);
     }
 
     public function records(): Json

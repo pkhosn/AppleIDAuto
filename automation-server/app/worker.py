@@ -189,6 +189,7 @@ class Worker:
         except Exception as exc:
             self.store.log(account_id, "two_factor", "failed", f"自动关闭双重认证前冻结失败: {type(exc).__name__}")
             return False, "检测到双重认证，但冻结账号失败，未自动关闭", None, "auto_disable_freeze_failed"
+        self.store.upsert(account_id, "running", "账号已冻结，正在通过恢复邮件关闭双重认证")
         try:
             result = await run_controlled_security_rollback(account_id, store=self.store)
         except Exception as exc:
@@ -221,6 +222,7 @@ class Worker:
         except Exception as exc:
             self.store.log(account_id, "email_recovery", "failed", f"自动找回密码前冻结失败: {type(exc).__name__}")
             return False, "密码校验失败，且冻结账号失败，未自动找回密码", None, "email_recovery_freeze_failed"
+        self.store.upsert(account_id, "running", "账号已冻结，正在通过救援邮箱找回密码（可能等待验证码或邮件）")
         try:
             result = await run_controlled_email_password_change(
                 account_id, Path("/data/recovery-escrow"),

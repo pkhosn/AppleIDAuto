@@ -13,6 +13,32 @@ class BackendService extends Service
         $this->app->bind('backendService', BackendService::class);
     }
 
+    /** Read-only runtime snapshot; unavailable backends leave stored results intact. */
+    public function taskStates(): array
+    {
+        if (!env('backend.enable_api') && !AutomationScheduleConfig::globals()['active']) return [];
+        $url = trim((string)env('backend.api_url'));
+        $token = trim((string)env('backend.token'));
+        if ($url === '' || $token === '') return [];
+        $ch = curl_init(rtrim($url, '/') . '/get_task_list');
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => ['token: ' . $token],
+            CURLOPT_CONNECTTIMEOUT => (int)env('backend.connect_timeout', 3),
+            CURLOPT_TIMEOUT => (int)env('backend.read_timeout', 10),
+        ]);
+        $body = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        $result = is_string($body) ? json_decode($body, true) : null;
+        if ($code !== 200 || !is_array($result) || empty($result['status']) || !is_array($result['data'] ?? null)) return [];
+        $states = [];
+        foreach ($result['data'] as $state) {
+            if (is_array($state) && (int)($state['account_id'] ?? 0) > 0) $states[(int)$state['account_id']] = $state;
+        }
+        return $states;
+    }
+
     public function addTask($id): array
     {
         $backendUrl = env('backend.api_url');

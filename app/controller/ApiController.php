@@ -24,7 +24,7 @@ class ApiController extends BaseController
             if (!$account) continue;
             $next = !empty($state['next_run_at']) ? strtotime($state['next_run_at']) : false;
             Db::name('account')->where('id', $id)->update([
-                'task_status' => $account['enable'] ? $state['status'] : 'disabled',
+                'task_status' => $account['enable'] || in_array($state['status'], ['running', 'failed'], true) ? $state['status'] : 'disabled',
                 'task_next_run_at' => $account['enable'] && $next !== false ? date('Y-m-d H:i:s', $next) : null,
                 'task_last_sync_at' => date('Y-m-d H:i:s'),
             ]);

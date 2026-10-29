@@ -40,6 +40,24 @@ class FeatureScheduleTest(unittest.TestCase):
         self.f.start(1, ORDER)
         self.f.finish(1, ORDER, 'success')
 
+    def test_schedule_sync_does_not_end_recovery_when_account_is_frozen(self):
+        self.store.upsert(1, 'running', '正在关闭双重认证')
+        scheduler = Scheduler(self.store, type('Queue', (), {'remove': AsyncMock()})())
+        snapshots = [{'id': 1, 'enable': False, 'schedule': self.config}]
+        with patch('app.scheduler.PanelClient') as panel:
+            panel.return_value.automation_schedules = AsyncMock(return_value=snapshots)
+            panel.return_value.report_schedule_states = AsyncMock()
+            asyncio.run(scheduler.sync())
+        self.assertEqual(self.store.get(1)['status'], 'running')
+        self.assertEqual(self.store.get(1)['message'], '正在关闭双重认证')
+        self.store.upsert(1, 'failed', '恢复超时')
+        with patch('app.scheduler.PanelClient') as panel:
+            panel.return_value.automation_schedules = AsyncMock(return_value=snapshots)
+            panel.return_value.report_schedule_states = AsyncMock()
+            asyncio.run(scheduler.sync())
+        self.assertEqual(self.store.get(1)['status'], 'failed')
+        self.assertEqual(self.store.get(1)['message'], '恢复超时')
+
     def test_legacy_profile_uncertain_is_reconciled_once_only_when_enabled(self):
         self.store.db.execute("UPDATE feature_schedule SET result='uncertain',next_run_at=NULL WHERE account_id=1")
         self.f.sync(1, self.config, False)
