@@ -1,2 +1,12 @@
-*{box-sizing:border-box}body{margin:0;background:transparent;color:#18181b;font:14px/1.5 system-ui,sans-serif}main{padding:12px}.account,form{padding:16px;border:1px solid #e4e4e7;border-radius:12px;background:#fff;margin-bottom:12px}.field+.field{margin-top:14px}.field>span,label{display:block;color:#71717a;margin-bottom:5px}.field>div{display:flex;gap:12px;align-items:center;justify-content:space-between}code{font:14px/1.5 ui-monospace,monospace;overflow-wrap:anywhere;min-width:0}button,input{font:inherit}button{cursor:pointer;flex-shrink:0;background:#fff;border:1px solid #d4d4d8;border-radius:6px;padding:5px 10px}button:hover{background:#f4f4f5}input{max-width:100%;border:1px solid #d4d4d8;border-radius:6px;padding:7px;margin:0 8px 8px 0}#copy-status{margin:0;color:#52525b}[role=alert]{color:#b91c1c}
-.health{margin:0 0 4px;font-weight:600}.health-good{color:#15803d}.health-bad{color:#b91c1c}.last-check{margin:0 0 14px;color:#71717a;font-size:12px}
+*{box-sizing:border-box}
+body{margin:0;background:transparent;color:#212529;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans SC",Arial,sans-serif}
+main{padding:12px}
+.share-account-grid{grid-template-columns:1fr}
+form{padding:16px;border:1px solid #eef1f4;border-radius:16px;background:#fbfbfc;margin-bottom:12px}
+label{display:block;color:#6c757d;margin-bottom:6px}
+form button,form input{font:inherit;border:1px solid #dee2e6;border-radius:8px;padding:8px 12px}
+form button{cursor:pointer;background:#007bff;color:#fff;border:0}
+form input{max-width:100%;margin:0 8px 8px 0;background:#fff}
+#copy-status{margin:8px 0 0;color:#6c757d;font-size:12px}
+#copy-status:empty{display:none}
+[role=alert]{color:#b91c1c}

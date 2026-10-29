@@ -5,7 +5,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>共享账号</title>
-<link rel="stylesheet" href="/static/css/share-embed.css">
+<link rel="stylesheet" href="/static/css/share-enhancements.css?v=20260903-share2">
+<link rel="stylesheet" href="/static/css/share-embed.css?v=20261029-card1">
 </head>
 <body>
 <main>
@@ -17,14 +18,25 @@
 <button type="submit">查看账号</button>
 </form>
 {else/}
-{volist name="accounts" id="account"}
-<section class="account" aria-label="共享账号">
-<p class="health {$account->status?'health-good':'health-bad'}">{$account->status?'状态正常':'账号状态异常'}</p>
-<p class="last-check">最近检测：{$account->last_check|default='-'}</p>
-<div class="field"><span>账号</span><div><code>{$account->username}</code><button type="button" class="copy" data-copy="{$account->username}">复制账号</button></div></div>
-<div class="field"><span>密码</span><div><code>{$account->password}</code><button type="button" class="copy" data-copy="{$account->password}">复制密码</button></div></div>
-</section>
+<div class="share-account-grid">
+{volist name="accounts" id="account" key="index"}
+<article class="share-account-card" aria-label="共享账号">
+<header class="share-account-card-head">
+<h2>账号 #{$index}</h2>
+<span class="share-status-badge {$account->status?'share-status-good':'share-status-bad'}">{$account->status?'状态正常':'状态异常'}</span>
+</header>
+<div class="share-value-row">
+<p class="share-value-label">Apple 账户</p>
+<div class="share-value"><span>{$account->username|default=''}</span><button class="share-copy-btn copy" type="button" data-copy="{$account->username}" aria-label="复制账号">复制</button></div>
+</div>
+<div class="share-value-row">
+<p class="share-value-label">密码</p>
+<div class="share-value"><span>{$account->password|default=''}</span><button class="share-copy-btn copy" type="button" data-copy="{$account->password}" aria-label="复制密码">复制</button></div>
+</div>
+<p class="share-account-health {$account->status?'':'share-account-health-bad'}"><i></i>{$account->status?'状态正常':'账号状态异常'}<span>最近检测：{$account->last_check|default='-'}</span></p>
+</article>
 {/volist}
+</div>
 {/if}
 <p id="copy-status" role="status" aria-live="polite"></p>
 </main>
