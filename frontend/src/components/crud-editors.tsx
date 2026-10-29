@@ -511,6 +511,8 @@ type ShareValues = {
   account_list: number[]
   access_tracking: boolean
   group_id: number
+  embed_enabled: boolean
+  embed_origins: string
   template_id: number
 }
 
@@ -523,6 +525,8 @@ const shareDefaults: ShareValues = {
   account_list: [],
   access_tracking: true,
   group_id: 0,
+  embed_enabled: false,
+  embed_origins: "",
   template_id: 0,
 }
 
@@ -532,7 +536,7 @@ function shareUrl(link: string) {
 
 function copyText(text: string) {
   if (navigator.clipboard?.writeText) {
-    navigator.clipboard.writeText(text).then(() => toast.success("已复制分享地址"), () => toast.error("复制失败，请手动复制"))
+    navigator.clipboard.writeText(text).then(() => toast.success("已复制"), () => toast.error("复制失败，请手动复制"))
   } else {
     toast.error("当前浏览器不支持自动复制，请手动复制")
   }
@@ -579,6 +583,7 @@ export function ShareEditor({ row, admin, onSaved }: { row?: Entity; admin: bool
             ? d.account_list.map(Number)
             : String(d.account_list ?? "").split(",").filter(Boolean).map(Number),
           access_tracking: Boolean(d.access_tracking),
+          embed_enabled: Boolean(d.embed_enabled), embed_origins: String(d.embed_origins ?? ""),
           group_id: Number(d.group_id ?? 0), template_id: Number(d.template_id ?? 0),
         })
         if (d.share_link) setCreated({ share_link: String(d.share_link), url: shareUrl(String(d.share_link)) })
@@ -640,6 +645,12 @@ export function ShareEditor({ row, admin, onSaved }: { row?: Entity; admin: bool
               value={values.access_tracking}
               onChange={(access_tracking) => setValues((v) => ({ ...v, access_tracking }))}
             />
+            <Toggle label="允许 iframe 嵌入" value={values.embed_enabled} onChange={embed_enabled => setValues(v => ({ ...v, embed_enabled }))} />
+            {values.embed_enabled && <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="embed-origins">允许嵌入的网站</Label>
+              <textarea id="embed-origins" className="min-h-24 w-full rounded-lg border bg-background p-2 text-sm" value={values.embed_origins} onChange={e => setValues(v => ({ ...v, embed_origins: e.target.value }))} placeholder="https://shop.example.com" />
+              <p className="text-xs text-muted-foreground">每行一个完整 http(s) 网站来源，包含非默认端口；不支持路径和通配符。留空允许任意网站嵌入。嵌入页仅显示账号密码，仍需验证分享访问密码。</p>
+            </div>}
             <div className="space-y-2 sm:col-span-2">
               <Label>关联账号</Label>
               <div className="max-h-40 space-y-2 overflow-y-auto rounded-lg border p-3">
@@ -657,6 +668,12 @@ export function ShareEditor({ row, admin, onSaved }: { row?: Entity; admin: bool
             {created && (
               <div className="space-y-2 rounded-lg border p-3 sm:col-span-2">
                 <Label>分享地址</Label>
+                {values.embed_enabled && <div className="space-y-2">
+                  <Label htmlFor="embed-code">iframe 嵌入代码（保存设置后生效）</Label>
+                  <textarea id="embed-code" className="min-h-20 w-full rounded-lg border bg-background p-2 text-xs" readOnly value={`<iframe src="${shareUrl(created.share_link)}/embed" title="共享账号" width="100%" height="240" style="border:0" allow="clipboard-write"></iframe>`} />
+                  <Button type="button" size="sm" variant="outline" onClick={() => copyText(`<iframe src="${shareUrl(created.share_link)}/embed" title="共享账号" width="100%" height="240" style="border:0" allow="clipboard-write"></iframe>`)}>复制嵌入代码</Button>
+                </div>}
+
                 <div className="flex items-center gap-2">
                   <Input value={created.url} readOnly className="flex-1" />
                   <Button type="button" size="sm" variant="outline" onClick={copyCreated}><Copy className="size-4" />复制</Button>

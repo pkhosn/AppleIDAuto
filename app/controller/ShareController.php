@@ -44,6 +44,32 @@ class ShareController extends BaseController
         ]);
     }
 
+    public function embed(Request $request): View
+    {
+        $link = strtolower(trim((string)$request->route('link')));
+        $share = (new \app\model\SharePage())->fetchByLink($link);
+        if (!$share || !$share->embed_enabled) {
+            return view('share/embed', ['accounts' => [], 'needsPassword' => false, 'error' => '此分享未开放嵌入'])->code(404);
+        }
+        // SecurityHeaders applies this policy to the gate and errors as well.
+        $request->shareEmbedAncestors = \app\service\ShareEmbedPolicy::ancestors((string)$share->embed_origins);
+        if ($share->password && !$request->isPost()) {
+            return view('share/embed', ['accounts' => [], 'needsPassword' => true, 'error' => '']);
+        }
+        $result = $this->app->shareAccessService->resolve(
+            $link, $request->isPost() ? (string)$request->post('password', '') : '', getUserIP(), true, false
+        );
+        if (!$result['status']) {
+            return view('share/embed', ['accounts' => [], 'needsPassword' => in_array($result['http_status'], [400, 403], true), 'error' => $result['msg']])->code($result['http_status']);
+        }
+        $accounts = [];
+        foreach ($result['share']->account_list as $id) {
+            $account = $this->app->accountService->fetchInShare($id);
+            if ($account) $accounts[] = $account;
+        }
+        return view('share/embed', ['accounts' => $accounts, 'needsPassword' => false, 'error' => '']);
+    }
+
     public function manualUnlock(Request $request): string
     {
         $id = $request->id;

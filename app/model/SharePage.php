@@ -121,6 +121,8 @@ class SharePage extends Model
         if ($data['account_list'] === '') {
             throw new \InvalidArgumentException('请至少选择一个账号');
         }
+        $data['embed_enabled'] = (int)(bool)($data['embed_enabled'] ?? false);
+        $data['embed_origins'] = \app\service\ShareEmbedPolicy::normalize((string)($data['embed_origins'] ?? ''));
         $data['remark'] = trim((string)($data['remark'] ?? ''));
         $data['html'] = trim((string)($data['html'] ?? ''));
         $data['duration_minutes'] = max(0, min(525600, (int)($data['duration_minutes'] ?? 0)));

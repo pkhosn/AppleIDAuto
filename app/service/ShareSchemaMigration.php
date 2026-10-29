@@ -21,6 +21,11 @@ final class ShareSchemaMigration
             KEY idx_share_group_owner(owner), KEY idx_share_group_template(template_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         $columns = array_column($pdo->query('SHOW COLUMNS FROM share')->fetchAll(PDO::FETCH_ASSOC), 'Field');
+        foreach (['embed_enabled' => 'TINYINT(1) NOT NULL DEFAULT 0', 'embed_origins' => 'TEXT NULL'] as $column => $type) {
+            if (!in_array($column, $columns, true)) {
+                $pdo->exec("ALTER TABLE share ADD COLUMN {$column} {$type}");
+            }
+        }
         foreach (['group_id', 'template_id'] as $column) {
             if (!in_array($column, $columns, true)) {
                 $pdo->exec("ALTER TABLE share ADD COLUMN {$column} INT UNSIGNED NULL");

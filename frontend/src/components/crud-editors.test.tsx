@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { AccountCredentials, DeleteAction, pageTemplateChoices } from "./crud-editors"
+import { AccountCredentials, DeleteAction, ShareEditor, pageTemplateChoices } from "./crud-editors"
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -87,5 +87,32 @@ describe("DeleteAction", () => {
     await user.click(screen.getByRole("button", { name: "取消" }))
     expect(confirm).not.toHaveBeenCalled()
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+  })
+})
+
+
+describe("ShareEditor embedding", () => {
+  it("loads the origin policy, generates an embed URL and saves changed origins", async () => {
+    let saved: Record<string, unknown> | undefined
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const url = String(input)
+      let data: unknown = []
+      if (url.includes("bootstrap")) data = { user: { username: "fixture" } }
+      else if (url.includes("shares/5")) {
+        if (init?.method === "POST") {
+          saved = JSON.parse(String(init.body))
+          data = { share_link: "fixture" }
+        } else data = { id: 5, share_link: "fixture", account_list: [1], embed_enabled: 1, embed_origins: "https://shop.example.com" }
+      } else if (url.includes("accounts")) data = [{ id: 1, username: "fixture@example.invalid" }]
+      return new Response(JSON.stringify({ success: true, message: "ok", data, errors: [], meta: {} }), { headers: { "Content-Type": "application/json" } })
+    })
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={client}><ShareEditor row={{ id: 5, share_link: "fixture" }} admin={false} onSaved={() => {}} /></QueryClientProvider>)
+    fireEvent.click(screen.getByRole("button", { name: "编辑" }))
+    const origins = await screen.findByDisplayValue("https://shop.example.com")
+    expect((screen.getByLabelText("iframe 嵌入代码（保存设置后生效）") as HTMLTextAreaElement).value).toContain("/share/fixture/embed")
+    fireEvent.change(origins, { target: { value: "" } })
+    fireEvent.click(screen.getByRole("button", { name: "保存分享" }))
+    await vi.waitFor(() => expect(saved).toMatchObject({ embed_enabled: true, embed_origins: "" }))
   })
 })

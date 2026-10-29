@@ -93,3 +93,31 @@ php think mailbox:key --show
 管理站向网关提交 `pid`、`type`、`out_trade_no`、`notify_url`、`return_url`、`name`、`money`、`param`、`sign_type=MD5` 和 `sign`。生成签名时，先按参数名排序，排除 `sign`、`sign_type`、空字符串和 null 值，再将参数拼成 `key=value` 并用 `&` 连接。最后直接追加商户密钥并计算 MD5。
 
 通知需包含签名、`trade_status=TRADE_SUCCESS`、本地订单号 `out_trade_no`、网关流水号 `trade_no`、金额 `money` 和支付类型 `type`。处理成功回复 `success`，验签或业务校验失败回复 `fail`；重复通知不会重复发放套餐或余额。
+
+### 分享页 iframe 嵌入
+
+在管理后台「分享页」新建或编辑链接，打开「允许 iframe 嵌入」，保存后复制嵌入代码。现有链接默认关闭；嵌入地址是 `/share/分享代码/embed`，只展示账号、密码和复制按钮，不渲染页面模板或提供账号操作。
+
+「允许嵌入的网站」每行一个完整来源，例如 `https://shop.example.com` 或 `http://localhost:8080`。协议、主机和端口必须匹配；不支持路径、通配符或登录信息。留空允许任意网站嵌入。嵌套 iframe 的每一层父页面都必须符合来源策略。此设置使用浏览器 CSP `frame-ancestors`，不限制直接访问或服务端抓取。
+
+分享访问密码、有效期、首次访问计时和账号归属校验继续生效。有访问密码时，在 iframe 内输入密码，通过 POST 当次验证；不依赖第三方 Cookie，也不把密码放进 URL。重新载入时需重新输入密码。
+
+升级先备份数据库，再执行现有迁移命令（可重复运行）：
+
+```bash
+php db/update/review_fixes.php
+php tests/test_share_embed.php
+```
+
+反向代理必须保留应用返回的 CSP，并且不能在嵌入入口额外添加 `X-Frame-Options: DENY` 或 `SAMEORIGIN`。若原配置统一添加此头，可在 Nginx `http` 上下文加入以下 map，将原有 X-Frame-Options 指令替换为下列指令；其他安全头保持原配置：
+
+```nginx
+map $uri $share_frame_options {
+    default DENY;
+    "~^/share/[a-z0-9_-]{4,32}/embed$" "";
+}
+# 在原有 server 中：
+add_header X-Frame-Options $share_frame_options always;
+```
+
+可选 HTTP 回归使用隔离 fixture 服务（禁止指向生产）：`EMBED_TEST_URL=http://127.0.0.1:18941 php tests/test_share_embed.php`。该测试需要 openframe（开放）、restricted（来源 http://embed-parent-allowed）、protected（密码 gate-secret）、disabled（关闭）、expired（过期）五条虚构分享，共享虚构账号 fixture@example.invalid / FixturePass1!；missing 必须不存在。测试检查密码门禁、POST 校验、重新载入、过期、关闭及响应头。测试数据不得使用真实账号。

@@ -92,9 +92,11 @@ foreach (preg_split('/;\s*(?:\r?\n|$)/', $sql) as $statement) {
     if ($statement!=='' && !preg_match('/^\/\*.*\*\/$/s',$statement)) $pdo->exec($statement);
 }
 $pdo->exec('DROP TABLE share_group');
-$pdo->exec('ALTER TABLE share DROP COLUMN group_id, DROP COLUMN template_id');
+$pdo->exec('ALTER TABLE share DROP COLUMN group_id, DROP COLUMN template_id, DROP COLUMN embed_enabled, DROP COLUMN embed_origins');
 app\service\ShareSchemaMigration::apply($pdo);
 app\service\ShareSchemaMigration::apply($pdo);
+$embedColumns = array_column($pdo->query('SHOW COLUMNS FROM share')->fetchAll(PDO::FETCH_ASSOC), 'Field');
+check(in_array('embed_enabled', $embedColumns, true) && in_array('embed_origins', $embedColumns, true), 'Embed schema missing after repeated migration');
 $installer = new app\service\InstallService();
 (new ReflectionMethod($installer,'validateInitializedDatabase'))->invoke($installer,$pdo);
 $app->env->set('credentials.cipher_key',''); $app->env->set('mailbox.cipher_key','');
@@ -171,7 +173,7 @@ $result=(new app\model\Account())->addAccount(['username'=>'committed@example.te
 check($result['status'] && $startup->visible,'Backend started before account transaction committed');
 
 // Repay a pending recharge with plan_id=0, without a gateway request.
-Db::name('payment_config')->where('id',1)->update(['status'=>1,'pid'=>'fixture','merchant_key'=>'fixture']);
+Db::name('payment_config')->where('id',1)->update(['status'=>1,'gateway'=>'https://payment.example.invalid','pid'=>'fixture','merchant_key'=>'fixture']);
 $order=$app->orderService->createRechargeOrder(1,25,'alipay');
 $app->session->set('user_id',1);
 $response=(new app\controller\PayController($app))->repayOrder($order['order_no']);

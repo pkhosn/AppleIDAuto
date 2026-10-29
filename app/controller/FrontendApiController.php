@@ -584,6 +584,8 @@ class FrontendApiController extends BaseController
             $html = (string)$template['html']; $noticeHtml = (string)$template['notice_html'];
         }
         $data = ['share_link' => $shareLink,
+            'embed_enabled' => (int)(bool)$this->request->param('embed_enabled', $existing ? $existing->embed_enabled : false),
+            'embed_origins' => (string)$this->request->param('embed_origins', $existing ? $existing->embed_origins : ''),
             'account_list' => implode(',', $accountIds), 'password' => $password === '' ? null : $password, 'owner' => $owner,
             'html' => $html,
             'notice_html' => $noticeHtml,

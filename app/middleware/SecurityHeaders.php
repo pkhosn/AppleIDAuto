@@ -27,6 +27,10 @@ class SecurityHeaders
         if (str_starts_with($path, 'share/') && !str_ends_with($path, '/unlock')) {
             $headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
         }
+        if (isset($request->shareEmbedAncestors)) {
+            unset($headers['X-Frame-Options']);
+            $headers['Content-Security-Policy'] = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors " . $request->shareEmbedAncestors;
+        }
         return $response->header($headers);
     }
 }

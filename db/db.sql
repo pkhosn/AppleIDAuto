@@ -118,6 +118,8 @@ CREATE TABLE `proxy_source` (
 /*Table structure for table `share` */
 
 CREATE TABLE `share` (
+  `embed_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `embed_origins` text DEFAULT NULL,
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `share_link` varchar(32) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,
   `account_list` varchar(512) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci NOT NULL,

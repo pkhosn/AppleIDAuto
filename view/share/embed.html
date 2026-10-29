@@ -1,0 +1,31 @@
+{__NOLAYOUT__}
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>共享账号</title>
+<link rel="stylesheet" href="/static/css/share-embed.css">
+</head>
+<body>
+<main>
+{if $error}<p role="alert">{$error}</p>{/if}
+{if $needsPassword}
+<form method="post" action="" autocomplete="off">
+<label for="password">分享访问密码</label>
+<input id="password" name="password" type="password" required autocomplete="off">
+<button type="submit">查看账号</button>
+</form>
+{else/}
+{volist name="accounts" id="account"}
+<section class="account" aria-label="共享账号">
+<div class="field"><span>账号</span><div><code>{$account->username}</code><button type="button" class="copy" data-copy="{$account->username}">复制账号</button></div></div>
+<div class="field"><span>密码</span><div><code>{$account->password}</code><button type="button" class="copy" data-copy="{$account->password}">复制密码</button></div></div>
+</section>
+{/volist}
+{/if}
+<p id="copy-status" role="status" aria-live="polite"></p>
+</main>
+<script src="/static/js/share-embed.js" defer></script>
+</body>
+</html>
