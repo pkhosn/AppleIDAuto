@@ -1067,6 +1067,40 @@ class AppleFlow:
         return {"status": True, "message": "邮件密码重置完成", "password": new_password,
                 "password_change_confirmed": True}
 
+    def _fill_recovery_passwords(self, driver, password: str):
+        """Use real input events and re-query fields after reactive form updates."""
+        from selenium.webdriver.common.keys import Keys
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.common.exceptions import StaleElementReferenceException
+
+        def fill_and_verify(current):
+            try:
+                fields = self._visible_fields_anywhere(current, "input[type='password']", 2)
+                if len(fields) < 2:
+                    return False
+                for index in range(2):
+                    # Typing into one field may replace the other input node.
+                    fields = self._visible_fields_anywhere(current, "input[type='password']", 2)[-2:]
+                    if len(fields) < 2:
+                        return False
+                    field = fields[index]
+                    if field.get_property("value") != password:
+                        field.click()
+                        field.send_keys(Keys.CONTROL, "a")
+                        field.send_keys(Keys.BACKSPACE)
+                        field.send_keys(password)
+                        field.send_keys(Keys.TAB)
+                fields = self._visible_fields_anywhere(current, "input[type='password']", 2)[-2:]
+                return len(fields) == 2 and all(field.get_property("value") == password for field in fields)
+            except StaleElementReferenceException:
+                return False
+
+        try:
+            WebDriverWait(driver, 10).until(fill_and_verify)
+        except Exception as exc:
+            raise FlowError("password_form_incomplete", "新密码两栏未完整填写，未提交修改",
+                            stage="password_form", password_submitted=False) from exc
+
     def _complete_security_rollback(self, driver, payload: dict) -> dict:
         from selenium.common.exceptions import StaleElementReferenceException
         from selenium.webdriver.support.ui import WebDriverWait
@@ -1168,13 +1202,19 @@ class AppleFlow:
             inputs = []
 
         if inputs:
-            def fill_password():
-                for element in inputs:
-                    element.clear()
-                    element.send_keys(new_password)
-
-            self._stage("password_form", fill_password)
+            self._stage("password_form", lambda: self._fill_recovery_passwords(driver, new_password))
             self._stage("password_form", lambda: self._raise_password_policy_error(driver))
+            def ready_to_submit(current):
+                fields = self._visible_fields_anywhere(current, "input[type='password']", 2)[-2:]
+                if len(fields) != 2 or any(field.get_property("value") != new_password for field in fields):
+                    return False
+                return self._exact_control_anywhere(current, ("continue", "reset", "重设", "继续"), False, False)
+
+            try:
+                WebDriverWait(driver, 10).until(ready_to_submit)
+            except Exception as exc:
+                raise FlowError("password_form_incomplete", "新密码表单未就绪，未提交修改",
+                                stage="password_form", password_submitted=False) from exc
             self._stage(
                 "password_submitted", lambda: self._click_button_anywhere(driver, ("continue", "reset", "重设", "继续")),
                 password_submitted=True,

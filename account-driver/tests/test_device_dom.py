@@ -56,3 +56,39 @@ class DeviceDOMTest(unittest.TestCase):
                 self.assertEqual("ready", flow._open_device_card_details(driver, cards[0], (label.lower(),)))
         finally:
             driver.quit()
+
+    def test_recovery_password_form_that_keeps_clearing_is_not_submitted(self):
+        from selenium import webdriver
+        from app.browser import FlowError
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless=new")
+        driver = webdriver.Remote(os.environ["DEVICE_DOM_SELENIUM_URL"], options=options)
+        try:
+            driver.get("data:text/html;charset=utf-8," + quote('''<input type="password" oninput="this.value=''">
+              <input type="password"><button onclick="window.submitted=true">继续</button>'''))
+            with self.assertRaises(FlowError) as error:
+                AppleFlow()._fill_recovery_passwords(driver, 'FixturePass1@')
+            self.assertEqual(error.exception.code, 'password_form_incomplete')
+            self.assertFalse(error.exception.password_submitted)
+            self.assertFalse(driver.execute_script('return !!window.submitted'))
+        finally:
+            driver.quit()
+
+    def test_recovery_password_form_repairs_reactive_clear_before_submission(self):
+        from selenium import webdriver
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless=new")
+        driver = webdriver.Remote(os.environ["DEVICE_DOM_SELENIUM_URL"], options=options)
+        try:
+            driver.get("data:text/html;charset=utf-8," + quote('''<input id="first" type="password">
+              <input id="second" type="password" oninput="if(!window.cleared){window.cleared=true;document.getElementById('first').value='';}">
+              <button disabled id="submit">继续</button>
+              <script>document.addEventListener('input',()=>{document.getElementById('submit').disabled=!(first.value && first.value===second.value);});</script>'''))
+            flow = AppleFlow()
+            flow._fill_recovery_passwords(driver, 'FixturePass1@')
+            from selenium.webdriver.common.by import By
+            fields = driver.find_elements(By.CSS_SELECTOR, "input[type='password']")
+            self.assertTrue(all(field.get_property('value') == 'FixturePass1@' for field in fields))
+            self.assertTrue(driver.find_element(By.ID, 'submit').is_enabled())
+        finally:
+            driver.quit()

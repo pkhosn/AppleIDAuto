@@ -391,6 +391,21 @@ class MailRecoveryTest(unittest.TestCase):
         self.assertEqual("security_rollback_link_expired", result["error_code"])
         self.assertEqual(["lookup:security_rollback"], mailbox.calls)
 
+    def test_incomplete_password_form_does_not_wait_for_confirmation_or_consume_link(self):
+        class IncompleteForm(FakeAccountClient):
+            async def run(self, action, payload):
+                return {'status': False, 'error_code': 'password_form_incomplete',
+                        'stage': 'password_form', 'password_submitted': False}
+        mailbox = FakeMailbox(kind='security_rollback', existing=True)
+        store = FakeRollbackStore()
+        with tempfile.TemporaryDirectory() as directory:
+            result = asyncio.run(run_controlled_security_rollback(
+                1, panel=FakePanel(), account_client=IncompleteForm(), mailbox_client=mailbox,
+                store=store, escrow_dir=Path(directory)))
+        self.assertEqual(result['error_code'], 'password_form_incomplete')
+        self.assertEqual(mailbox.calls, ['lookup:security_rollback'])
+        self.assertEqual(store.seen, set())
+
     def test_security_rollback_pre_click_failure_preserves_driver_error_and_link(self):
         panel = FakePanel()
         account = PreClickRollbackFailureAccountClient()
