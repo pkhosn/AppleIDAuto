@@ -74,6 +74,12 @@ async def run_controlled_security_rollback(
                 mailbox, "security_rollback", not_before, expected_account=expected_account,
                 exclude_message_ids=seen_ids,
             )
+            if rollback_link is None and seen_ids:
+                previous = await mailbox_client.find_link(
+                    mailbox, "security_rollback", not_before, expected_account=expected_account,
+                )
+                if previous and previous.message_id in seen_ids:
+                    raise ControlledRecoveryError("security_rollback_previous_attempt_unconfirmed", stage)
             if rollback_link is None:
                 stage = "mailbox_wait"
                 rollback_link = await mailbox_client.wait_for_link(

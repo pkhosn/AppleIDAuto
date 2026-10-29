@@ -173,3 +173,5 @@ Apple 成功弹窗可能位于关闭的 Shadow DOM 内。驱动在判断错误�
 账号和自动化任务列表从调度器只读接口获取当前执行状态和消息，页面按现有 10 秒周期刷新。账号“启用”控制后续调度，与本次恢复任务是否执行完毕分别显示。自动冻结会移除后续排队，但正在进行的恢复仍显示执行中，完成后显示本次结果；历史检测时间不提前更新。调度器不可用时保留本地记录。
 
 本地回归：`php tests/test_task_status.php`；调度器沿用 `python -m unittest discover -s tests -p 'test_*.py'`（使用隔离 DATABASE_PATH 与 fixture 服务，见开发文档）。
+
+已处理的安全恢复邮件不会自动重放。如果邮箱只有此前尝试过的有效邮件，恢复报告 `security_rollback_previous_attempt_unconfirmed`，应检查前次截图、提交结果和候选密码，不能盲目删除已处理记录或重新提交。

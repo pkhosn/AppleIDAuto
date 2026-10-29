@@ -391,6 +391,26 @@ class MailRecoveryTest(unittest.TestCase):
         self.assertEqual("security_rollback_link_expired", result["error_code"])
         self.assertEqual(["lookup:security_rollback"], mailbox.calls)
 
+    def test_consumed_uncertain_link_is_reported_without_replaying_or_waiting(self):
+        class ConsumedMailbox(FakeMailbox):
+            async def find_link(self, config, expected_kind, not_before, expected_account=None, exclude_message_ids=None):
+                self.calls.append('lookup:' + expected_kind)
+                if exclude_message_ids:
+                    return None
+                return AppleRecoveryLink(expected_kind, 'https://iforgot.apple.com/fixture', '<fixture>')
+        mailbox = ConsumedMailbox(kind='security_rollback')
+        store = FakeRollbackStore()
+        store.seen.add('<fixture>')
+        account = FakeAccountClient()
+        with tempfile.TemporaryDirectory() as directory:
+            result = asyncio.run(run_controlled_security_rollback(
+                1, panel=FakePanel(), account_client=account, mailbox_client=mailbox,
+                store=store, escrow_dir=Path(directory)))
+        self.assertEqual(result['error_code'], 'security_rollback_previous_attempt_unconfirmed')
+        self.assertEqual(account.actions, [])
+        self.assertEqual(mailbox.calls, ['lookup:security_rollback', 'lookup:security_rollback'])
+        self.assertEqual(store.seen, {'<fixture>'})
+
     def test_incomplete_password_form_does_not_wait_for_confirmation_or_consume_link(self):
         class IncompleteForm(FakeAccountClient):
             async def run(self, action, payload):
