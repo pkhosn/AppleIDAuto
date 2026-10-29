@@ -72,6 +72,8 @@ php think mailbox:key --show
 - 管理员可在“邮件恢复”页面选择账号、确认并发起受控恢复。发起前必须保存并禁用账号、自动改密和设备操作，并启用对应的邮件恢复方式；入口记录进度和结果，不等同于“运行到期项”。
 - `scripts/controlled_email_recovery.py` 和 `scripts/controlled_security_rollback.py` 提供高级 CLI 入口，有明确的一次性确认参数；仅在理解脚本前置条件后使用。直连探测还需要脚本要求的额外确认。
 
+安全设置恢复邮件支持中文、英文及西班牙语；西班牙语恢复操作识别 `regresar a la configuración de seguridad anterior` 等明确链接文字，关闭成功确认需明确表示双重认证已关闭。其他语言不明确的邮件会停止恢复。
+
 上述恢复流程都必须通过邮件校验：邮件须带有验证有效的 Apple 域 DKIM 签名，且签名域需与 Apple 发件域对齐；系统还会检查收件人、操作类型、时效和 Apple HTTPS 链接。任意 `Authentication-Results` 文本都不能作为可信证据。签名损坏、DNS 查询失败或邮件内容不明确时，恢复会停止并返回错误；账号保持冻结，等待核查。
 
 ## 注册、管理入口与支付

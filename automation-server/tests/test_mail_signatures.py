@@ -8,7 +8,7 @@ from unittest.mock import patch
 
 import dkim
 
-from app.mail_recovery import extract_apple_recovery_link
+from app.mail_recovery import extract_apple_recovery_link, is_apple_security_rollback_confirmation
 
 
 class MailSignatureTest(unittest.TestCase):
@@ -64,3 +64,44 @@ class MailSignatureTest(unittest.TestCase):
         raw, _ = self.sign(self.raw())
         with patch('dkim.get_txt', side_effect=TimeoutError('fixture DNS outage')):
             self.assertIsNone(self.resolve(raw))
+
+    def spanish(self, body):
+        message = EmailMessage()
+        message['From'] = 'Apple <noreply@apple.com>'
+        message['To'] = 'fixture@example.test'
+        message['Date'] = 'Tue, 27 Oct 2026 12:00:00 +0000'
+        message.set_content(body, subtype='html')
+        return message.as_bytes()
+
+    def test_spanish_rollback_requires_signed_labelled_apple_action(self):
+        body = ('Se activó la autenticación de dos factores. '
+                '<a href="https://support.apple.com/">Soporte</a>'
+                '<a href="https://iforgot.apple.com/fixture-token">'
+                'regresar a la configuración de seguridad anterior</a>')
+        unsigned = self.spanish(body)
+        raw, record = self.sign(unsigned)
+        with patch('dkim.get_txt', return_value=record):
+            self.assertEqual(self.resolve(raw).url, 'https://iforgot.apple.com/fixture-token')
+            self.assertIsNone(self.resolve(unsigned))
+            self.assertIsNone(self.resolve(raw.replace(b'fixture-token', b'tampered-token')))
+            self.assertIsNone(extract_apple_recovery_link(raw, 'other@example.test', 'security_rollback'))
+            # Enrollment notification is not evidence that 2FA was disabled.
+            self.assertFalse(is_apple_security_rollback_confirmation(raw, 'fixture@example.test'))
+        for body in [
+            'Se activó la autenticación de dos factores. <a href="https://support.apple.com/">Soporte</a>',
+            '<a href="https://evil.example/">regresar a la configuración de seguridad anterior</a>',
+        ]:
+            raw, record = self.sign(self.spanish(body))
+            with patch('dkim.get_txt', return_value=record):
+                self.assertIsNone(self.resolve(raw))
+
+    def test_spanish_disabled_confirmation_requires_authentication_and_recipient(self):
+        for text in ['Se desactivó la autenticación de dos factores',
+                     'La autenticación de dos factores se ha desactivado',
+                     'La autenticación de dos factores está desactivada']:
+            unsigned = self.spanish(text)
+            raw, record = self.sign(unsigned)
+            with patch('dkim.get_txt', return_value=record):
+                self.assertTrue(is_apple_security_rollback_confirmation(raw, 'fixture@example.test'))
+                self.assertFalse(is_apple_security_rollback_confirmation(raw, 'other@example.test'))
+                self.assertFalse(is_apple_security_rollback_confirmation(unsigned, 'fixture@example.test'))

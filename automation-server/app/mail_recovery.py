@@ -33,6 +33,8 @@ RECOVERY_KIND_TERMS = {
         "previous security settings", "return to previous security settings",
         "turn off two-factor authentication", "lower your account security",
         "恢复以前的安全设置", "返回之前的安全设置", "返回以前的安全设置", "关闭双重认证",
+        "regresar a la configuración de seguridad anterior",
+        "volver a la configuración de seguridad anterior",
     ),
 }
 
@@ -270,6 +272,9 @@ def is_apple_security_rollback_confirmation(raw_message: bytes, expected_recipie
     return any(term in normalized for term in (
         "two-factor authentication has been turned off", "two-factor authentication is turned off",
         "apple 账户双重认证已关闭", "双重认证已关闭", "关闭双重认证并恢复之前的安全设置",
+        "se desactivó la autenticación de dos factores",
+        "la autenticación de dos factores se ha desactivado",
+        "la autenticación de dos factores está desactivada",
     ))
 
 
