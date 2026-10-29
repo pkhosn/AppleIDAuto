@@ -19,6 +19,8 @@
 {else/}
 {volist name="accounts" id="account"}
 <section class="account" aria-label="共享账号">
+<p class="health {$account->status?'health-good':'health-bad'}">{$account->status?'状态正常':'账号状态异常'}</p>
+<p class="last-check">最近检测：{$account->last_check|default='-'}</p>
 <div class="field"><span>账号</span><div><code>{$account->username}</code><button type="button" class="copy" data-copy="{$account->username}">复制账号</button></div></div>
 <div class="field"><span>密码</span><div><code>{$account->password}</code><button type="button" class="copy" data-copy="{$account->password}">复制密码</button></div></div>
 </section>

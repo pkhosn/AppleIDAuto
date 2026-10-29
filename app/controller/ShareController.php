@@ -65,7 +65,10 @@ class ShareController extends BaseController
         $accounts = [];
         foreach ($result['share']->account_list as $id) {
             $account = $this->app->accountService->fetchInShare($id);
-            if ($account) $accounts[] = $account;
+            if ($account) {
+                $account->status = $this->app->shareService->isAccountHealthy($account->toArray());
+                $accounts[] = $account;
+            }
         }
         return view('share/embed', ['accounts' => $accounts, 'needsPassword' => false, 'error' => '']);
     }
