@@ -2071,11 +2071,15 @@ class AppleFlow:
 
         Apple loads modal contents asynchronously after the click succeeds.
         Wait for its action control instead of re-clicking the dimmed list.
-        Alternative targets are attempted only when the click itself fails.
+        Retry one unresponsive click only after proving the same unobscured
+        card is still on the unchanged, idle list page.
         """
         from selenium.webdriver.support.ui import WebDriverWait
 
         clicked = False
+        original_url = str(getattr(driver, "current_url", "") or "")
+        original_identity = self._device_card_identity(card)
+        retried_unopened = False
         for attempt in range(4):
             if self._device_detail_dialog_visible(driver):
                 # The device list remains behind Apple's modal. Never click
@@ -2093,6 +2097,12 @@ class AppleFlow:
                 if not refreshed:
                     break
                 current_card = refreshed[0]
+            if retried_unopened and (
+                    str(getattr(driver, "current_url", "") or "") != original_url
+                    or self._device_card_identity(current_card) != original_identity
+                    or self._has_visible_loading_indicator(driver)
+                    or not self._device_card_unobscured(driver, current_card)):
+                return "unopened"
             targets = self._device_card_click_targets(driver, current_card)
             try:
                 # Structural metadata only: never persist account/device text,
@@ -2121,13 +2131,42 @@ class AppleFlow:
                 )
                 return "ready"
             except Exception:
-                return "button_missing" if (self._device_detail_dialog_visible(driver)
-                                            or not self._device_cards_anywhere(driver)) else "unopened"
+                if self._device_detail_dialog_visible(driver):
+                    return "button_missing"
+                remaining = self._device_cards_anywhere(driver)
+                if not remaining:
+                    return "button_missing"
+                if (not retried_unopened and attempt < 3 and original_identity
+                        and str(getattr(driver, "current_url", "") or "") == original_url
+                        and self._device_card_identity(remaining[0]) == original_identity
+                        and not self._has_visible_loading_indicator(driver)
+                        and self._device_card_unobscured(driver, remaining[0])):
+                    retried_unopened = True
+                    continue
+                return "unopened"
         if not clicked:
             return "click_failed"
         if self._device_detail_dialog_visible(driver):
             return "button_missing"
         return "unopened" if self._device_cards_anywhere(driver) else "button_missing"
+
+    @staticmethod
+    def _device_card_unobscured(driver, card) -> bool:
+        """Fail closed when an overlay or a detached card would receive a retry."""
+        try:
+            return driver.execute_script("""
+                const e = arguments[0], r = e.getBoundingClientRect();
+                if (!e.isConnected || r.width <= 0 || r.height <= 0) return false;
+                let hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+                while (hit && hit.shadowRoot) {
+                    const inner = hit.shadowRoot.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+                    if (!inner || inner === hit) break;
+                    hit = inner;
+                }
+                return hit === e || e.contains(hit);
+            """, card) is True
+        except Exception:
+            return False
 
     @staticmethod
     def _device_detail_dialog_visible(driver) -> bool:

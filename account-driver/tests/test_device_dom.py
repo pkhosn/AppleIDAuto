@@ -1,6 +1,7 @@
 """Real DOM regressions. Opt in with DEVICE_DOM_SELENIUM_URL on an idle node."""
 import os
 import unittest
+from unittest.mock import patch
 from urllib.parse import quote
 
 from app.browser import AppleFlow
@@ -8,6 +9,42 @@ from app.browser import AppleFlow
 
 @unittest.skipUnless(os.getenv("DEVICE_DOM_SELENIUM_URL"), "requires an idle Selenium node")
 class DeviceDOMTest(unittest.TestCase):
+    def test_unresponsive_card_retry_requires_unchanged_unobscured_list(self):
+        from selenium import webdriver
+        from selenium.webdriver.support.ui import WebDriverWait
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless=new")
+        driver = webdriver.Remote(os.environ["DEVICE_DOM_SELENIUM_URL"], options=options)
+        try:
+            for scenario in ('ignored', 'overlay', 'changed', 'navigation', 'loading', 'persistent'):
+                with self.subTest(scenario=scenario):
+                    driver.get("about:blank")
+                    driver.execute_script("document.write(arguments[0]); document.close()", '''<main>
+                      <button class="device-card" style="width:315px;height:124px" onclick="
+                        window.clicks=(window.clicks||0)+1;
+                        if(window.clicks===1){
+                          if(window.scenario==='overlay') document.getElementById('overlay').hidden=false;
+                          if(window.scenario==='changed') this.lastElementChild.textContent='iPad Air';
+                          if(window.scenario==='navigation') location.hash='changed';
+                        } else if(window.scenario!=='persistent') document.getElementById('detail').hidden=false;">
+                        <svg width="30" height="40"></svg><div>Fixture device</div><div>MacBook Pro</div>
+                      </button></main>
+                      <div id="overlay" hidden style="position:fixed;inset:0;background:white"></div>
+                      <div role="dialog" id="detail" hidden><button>Remove from Account</button></div>''')
+                    driver.execute_script('window.scenario=arguments[0]', scenario)
+                    flow = AppleFlow()
+                    cards = flow._device_cards_anywhere(driver)
+                    # Shorten only the fixture wait; production retains its full wait.
+                    with patch('selenium.webdriver.support.ui.WebDriverWait',
+                               side_effect=lambda current, timeout: WebDriverWait(current, 1)), \
+                         patch.object(flow, '_has_visible_loading_indicator', return_value=scenario == 'loading'):
+                        result = flow._open_device_card_details(driver, cards[0], ('remove from account',))
+                    self.assertEqual('ready' if scenario == 'ignored' else 'unopened', result)
+                    self.assertEqual(2 if scenario in ('ignored', 'persistent') else 1,
+                                     driver.execute_script('return window.clicks'))
+        finally:
+            driver.quit()
+
     def test_delayed_detail_content_does_not_reclick_background(self):
         from selenium import webdriver
         options = webdriver.ChromeOptions()
