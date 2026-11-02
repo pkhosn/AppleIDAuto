@@ -143,6 +143,12 @@ try {
         check($savedSchedule['version'] === 4 && $savedSchedule['mode'] === 'custom'
             && $savedSchedule['features']['password_update']['minutes'] === 17, 'account-wide independent cycles persisted');
         check((int)$saved['enable_delete_devices'] === 1, 'device cleanup flag persisted');
+        $app->accountService->disableAccount('schedule-fixture@example.test');
+        $frozen = Db::name('account')->where('id', $fixtureId)->find();
+        check(!(bool)$frozen['enable'] && (int)$frozen['enable_delete_devices'] === 1, 'freezing pauses tasks without erasing device cleanup preference');
+        $finalized = $app->apiService->finalizeRecovery($fixtureId, hash('sha256', $savedIdentity->password));
+        check($finalized['status'] && (int)Db::name('account')->where('id', $fixtureId)->value('enable_delete_devices') === 1, 'recovery preserves device cleanup preference');
+
         $incompleteProfile = controller([
             'enable_auto_restore_profile' => true, 'dob' => '1984-12-17',
             'profile_family_name' => '', 'profile_middle_name' => '', 'profile_given_name' => '',

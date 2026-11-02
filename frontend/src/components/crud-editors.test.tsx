@@ -26,7 +26,7 @@ describe("account information controls", () => {
     }), { status: 200, headers: { "Content-Type": "application/json" } }))
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
     render(<QueryClientProvider client={client}><CopyAccountInfo row={{ id: 5, username: "fixture@example.test", dob: "2000-01-02" }} admin /></QueryClientProvider>)
-    await user.click(screen.getByRole("button", { name: "复制账号信息" }))
+    await user.click(screen.getByRole("button", { name: "fixture@example.test" }))
     await vi.waitFor(() => expect(write).toHaveBeenCalledWith("账号fixture@example.test 密码FixturePass! 朋友小明 工作医生 父母北京 生日2000-01-02"))
     expect(String(fetch.mock.calls[0][0])).toContain("/accounts/5/reveal-password?scope=admin")
   })

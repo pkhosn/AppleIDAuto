@@ -71,7 +71,6 @@ class ApiService extends Service
         $recoveryUpdate = [
             'enable' => 0,
             'enable_auto_update_password' => 0,
-            'enable_delete_devices' => 0,
             'check_interval' => 30,
             'task_status' => 'disabled',
             'task_next_run_at' => null,
@@ -110,7 +109,6 @@ class ApiService extends Service
                     'password' => $this->app->credentialCipherService->encrypt($password, 'account.password'),
                     'enable' => 0,
                     'enable_auto_update_password' => 0,
-                    'enable_delete_devices' => 0,
                     'check_interval' => 30,
                     'task_status' => 'disabled',
                     'task_message' => '密码已按 Apple 邮件确认同步，等待浏览器复核',

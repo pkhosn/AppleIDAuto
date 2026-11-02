@@ -42,13 +42,12 @@ class FakePanel:
             raise RuntimeError("finalize failed")
         self.info.update({
             "enable": True, "enable_auto_update_password": False,
-            "enable_delete_devices": False, "check_interval": 30,
+            "check_interval": 30,
         })
 
     async def disable_account(self, username):
         self.info.update({
             "enable": False, "enable_auto_update_password": False,
-            "enable_delete_devices": False,
         })
 
 

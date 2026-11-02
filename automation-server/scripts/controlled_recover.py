@@ -173,7 +173,7 @@ async def run_controlled_password_change(
         info = await panel.task_info(account_id)
         account_username = str(info.get("username") or "")
         independent = bool(info.get('schedule', {}).get('active'))
-        if bool(info.get("enable")) or (not independent and bool(info.get("enable_auto_update_password"))) or bool(info.get("enable_delete_devices")):
+        if bool(info.get("enable")) or (not independent and bool(info.get("enable_auto_update_password"))):
             raise ControlledRecoveryError("account_not_frozen", stage)
         required = ("username", "password", "dob", "q1", "a1", "q2", "a2", "q3", "a3")
         if any(not info.get(field) for field in required):
@@ -230,7 +230,6 @@ async def run_controlled_password_change(
         if (
             not bool(final_info.get("enable"))
             or (not independent and bool(final_info.get("enable_auto_update_password")))
-            or bool(final_info.get("enable_delete_devices"))
             or (not independent and int(final_info.get("check_interval", 0)) != 30)
         ):
             raise ControlledRecoveryError("final_state_unconfirmed", stage)

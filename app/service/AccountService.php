@@ -63,7 +63,6 @@ class AccountService extends Service
         }
         $account->enable = false;
         if (!AutomationScheduleConfig::globals()['active']) $account->enable_auto_update_password = false;
-        $account->enable_delete_devices = false;
         $account->task_status = 'disabled';
         $account->task_message = '账号已冻结，等待人工复核';
         $account->task_next_run_at = null;

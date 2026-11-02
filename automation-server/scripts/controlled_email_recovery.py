@@ -54,7 +54,7 @@ async def run_controlled_email_password_change(
         info = await panel.task_info(account_id)
         account_username = str(info.get("username") or "")
         independent = bool(info.get('schedule', {}).get('active'))
-        if bool(info.get("enable")) or (not independent and bool(info.get("enable_auto_update_password"))) or bool(info.get("enable_delete_devices")):
+        if bool(info.get("enable")) or (not independent and bool(info.get("enable_auto_update_password"))):
             raise ControlledRecoveryError("account_not_frozen", stage)
         mailbox = info.get("email_recovery") if isinstance(info.get("email_recovery"), dict) else {}
         if not mailbox.get("configured"):
@@ -158,7 +158,7 @@ async def run_controlled_email_password_change(
         await panel.finalize_recovery(account_id, hashlib.sha256(new_password.encode()).hexdigest())
         final_info = await panel.task_info(account_id)
         if (not bool(final_info.get("enable")) or (not independent and bool(final_info.get("enable_auto_update_password")))
-                or bool(final_info.get("enable_delete_devices")) or (not independent and int(final_info.get("check_interval", 0)) != 30)):
+                or (not independent and int(final_info.get("check_interval", 0)) != 30)):
             raise ControlledRecoveryError("final_state_unconfirmed", stage)
         escrow_path.unlink()
         if retired_escrow_path and retired_escrow_path.exists():

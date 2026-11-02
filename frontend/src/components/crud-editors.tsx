@@ -452,7 +452,7 @@ export function CopyAccountInfo({ row, admin }: { row: Entity; admin: boolean })
     onSuccess: () => { copy.reset(); toast.success("账号信息已复制") },
     onError: error => { copy.reset(); toast.error(error instanceof Error ? error.message : "复制失败，请重试") },
   })
-  return <Button size="sm" variant="ghost" disabled={copy.isPending} onClick={() => copy.mutate()}><Copy />{copy.isPending ? "正在复制…" : "复制账号信息"}</Button>
+  return <Button size="sm" variant="link" className="h-auto p-0 font-normal" title="点击复制账号信息" disabled={copy.isPending} onClick={() => copy.mutate()}>{copy.isPending ? "正在复制…" : String(row.username ?? "—")}</Button>
 }
 
 /**

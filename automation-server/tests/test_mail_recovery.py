@@ -54,12 +54,11 @@ class FakePanel:
 
     async def finalize_recovery(self, account_id, password_sha256):
         self.info.update({"enable": True, "enable_auto_update_password": False,
-                          "enable_delete_devices": False, "check_interval": 30})
+                          "check_interval": 30})
 
     async def disable_account(self, username):
         self.disabled = True
-        self.info.update({"enable": False, "enable_auto_update_password": False,
-                          "enable_delete_devices": False})
+        self.info.update({"enable": False, "enable_auto_update_password": False})
 
 
 class FakeAccountClient:
@@ -275,12 +274,14 @@ class MailRecoveryTest(unittest.TestCase):
 
     def test_email_password_recovery_changes_once_then_fresh_checks(self):
         panel, account, mailbox = FakePanel(), FakeAccountClient(), FakeMailbox()
+        panel.info["enable_delete_devices"] = True
         with tempfile.TemporaryDirectory() as directory:
             result = asyncio.run(run_controlled_email_password_change(
                 1, Path(directory), panel=panel, account_client=account, mailbox_client=mailbox,
                 password_factory=lambda: PASSWORD,
             ))
             self.assertEqual("success", result["status"])
+            self.assertTrue(panel.info["enable_delete_devices"])
             self.assertEqual(["request_email_reset", "complete_email_reset", "check"], account.actions)
             self.assertEqual(["lookup:password_reset", "password_reset"], mailbox.calls)
             self.assertNotIn(PASSWORD, repr(result))
