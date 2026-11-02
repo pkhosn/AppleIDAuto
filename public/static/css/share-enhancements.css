@@ -40,7 +40,7 @@
 .share-status-bad { color: #991b1b; background: #fee2e2; }
 .share-value-row { margin-bottom: 11px; }
 .share-value-label { margin-bottom: 6px; font-size: 12px; font-weight: 800; }
-.share-value { position: relative; min-height: 42px; padding: 10px 62px 10px 12px; overflow-wrap: anywhere; border: 1px solid #dee2e6; border-radius: 10px; background: #fff; color: #343a40; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; line-height: 1.5; }
+.share-value { position: relative; min-height: 42px; padding: 10px 92px 10px 12px; overflow-wrap: anywhere; border: 1px solid #dee2e6; border-radius: 10px; background: #fff; color: #343a40; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 13px; line-height: 1.5; }
 .share-value-muted { padding-right: 12px; color: #6c757d; font-family: inherit; }
 .share-copy-btn { position: absolute; top: 50%; right: 7px; transform: translateY(-50%); padding: 6px 10px; border: 0; border-radius: 8px; color: #fff; background: #007bff; font: inherit; font-size: 12px; font-weight: 800; cursor: pointer; transition: transform .15s ease, opacity .15s ease; }
 .share-copy-btn:hover { opacity: .92; transform: translateY(-50%) scale(1.03); }

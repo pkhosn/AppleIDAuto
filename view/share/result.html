@@ -7,7 +7,7 @@
     <title>账号分享 - {$site.site_name|default='账号分享'}</title>
     <link rel="stylesheet" href="/static/css/panel.css?v=20260901-ui4">
     <link rel="stylesheet" href="/static/css/shadcn-controls.css?v=20260902-controls1">
-    <link rel="stylesheet" href="/static/css/share-enhancements.css?v=20260903-share2">
+    <link rel="stylesheet" href="/static/css/share-enhancements.css?v=20261102-compact1">
     <link rel="stylesheet" href="/static/css/sweetalert2.min.css">
     <script src="/static/js/sweetalert2.all.min.js"></script>
     <script src="/static/js/clipboard.min.js"></script>
@@ -54,12 +54,10 @@
                     <span class="share-status-badge {$account->status?'share-status-good':'share-status-bad'}">{$account->status?'状态正常':'状态异常'}</span>
                 </header>
                 <div class="share-value-row">
-                    <p class="share-value-label">Apple 账户</p>
-                    <div class="share-value"><span>{$account->username|default=''}</span><button class="share-copy-btn copy-button" type="button" data-clipboard-text="{$account->username}">复制</button></div>
+                    <div class="share-value"><span>{$account->username|default=''}</span><button class="share-copy-btn copy-button" type="button" data-clipboard-text="{$account->username}">复制账号</button></div>
                 </div>
                 <div class="share-value-row">
-                    <p class="share-value-label">密码</p>
-                    <div class="share-value"><span>{$account->password|default=''}</span><button class="share-copy-btn copy-button" type="button" data-clipboard-text="{$account->password}">复制</button></div>
+                    <div class="share-value"><span>{$account->password|default=''}</span><button class="share-copy-btn copy-button" type="button" data-clipboard-text="{$account->password}">复制密码</button></div>
                 </div>
                 {if $account->frontend_remark!=""}<div class="share-value-row"><p class="share-value-label">备注</p><div class="share-value share-value-muted">{$account->frontend_remark|raw}</div></div>{/if}
                 <p class="share-account-health {$account->status?'':'share-account-health-bad'}"><i></i>{$account->status?'状态正常':'账号状态异常'}<span>最近检测：{$account->last_check|default='-'}</span></p>

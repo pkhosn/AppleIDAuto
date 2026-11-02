@@ -5,7 +5,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>共享账号</title>
-<link rel="stylesheet" href="/static/css/share-enhancements.css?v=20260903-share2">
+<link rel="stylesheet" href="/static/css/share-enhancements.css?v=20261102-compact1">
 <link rel="stylesheet" href="/static/css/share-embed.css?v=20261029-card1">
 <link rel="stylesheet" href="/static/css/share-watermark.css?v=20261102-1">
 </head>
@@ -28,12 +28,10 @@
 <span class="share-status-badge {$account->status?'share-status-good':'share-status-bad'}">{$account->status?'状态正常':'状态异常'}</span>
 </header>
 <div class="share-value-row">
-<p class="share-value-label">Apple 账户</p>
-<div class="share-value"><span>{$account->username|default=''}</span><button class="share-copy-btn copy" type="button" data-copy="{$account->username}" aria-label="复制账号">复制</button></div>
+<div class="share-value"><span>{$account->username|default=''}</span><button class="share-copy-btn copy" type="button" data-copy="{$account->username}" aria-label="复制账号">复制账号</button></div>
 </div>
 <div class="share-value-row">
-<p class="share-value-label">密码</p>
-<div class="share-value"><span>{$account->password|default=''}</span><button class="share-copy-btn copy" type="button" data-copy="{$account->password}" aria-label="复制密码">复制</button></div>
+<div class="share-value"><span>{$account->password|default=''}</span><button class="share-copy-btn copy" type="button" data-copy="{$account->password}" aria-label="复制密码">复制密码</button></div>
 </div>
 <p class="share-account-health {$account->status?'':'share-account-health-bad'}"><i></i>{$account->status?'状态正常':'账号状态异常'}<span>最近检测：{$account->last_check|default='-'}</span></p>
 </article>
