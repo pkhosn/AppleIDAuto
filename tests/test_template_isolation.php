@@ -23,11 +23,20 @@ $failed = false;
 Db::startTrans();
 try {
     $users = Db::name('user')->order('id', 'asc')->limit(2)->select()->toArray();
+    if (count($users) < 2) {
+        $fixtureId = Db::name('user')->insertGetId([
+            'username' => 'template-fixture-' . bin2hex(random_bytes(6)),
+            'password' => password_hash(bin2hex(random_bytes(12)), PASSWORD_DEFAULT),
+            'status' => 1, 'is_admin' => 0,
+        ]);
+        $users[] = ['id' => $fixtureId];
+    }
     checkTemplate(count($users) >= 2, 'two user fixtures exist');
     $ownerOne = (int)$users[0]['id'];
     $ownerTwo = (int)$users[1]['id'];
     Db::name('user')->where('id', $ownerOne)->update(['is_admin' => 1]);
     $now = date('Y-m-d H:i:s');
+    Db::name('share_template')->where('owner', $ownerOne)->delete();
     $foreignId = Db::name('share_template')->insertGetId([
         'owner' => $ownerTwo, 'name' => 'private foreign template', 'html' => '<p>foreign</p>',
         'notice_html' => '', 'is_default' => 1, 'create_time' => $now, 'update_time' => $now,
@@ -36,6 +45,11 @@ try {
 
     $list = json_decode(templateController([], 'GET')->templates()->getContent(), true);
     checkTemplate(($list['success'] ?? false) === true, 'template list succeeds');
+    $defaultRows = array_values(array_filter($list['data'] ?? [], fn($row) => !empty($row['effective_default'])));
+    checkTemplate(count($defaultRows) === 1 && $defaultRows[0]['name'] === '默认模板', 'fallback is visible as an editable private default');
+    $defaultId = (int)$defaultRows[0]['id'];
+    checkTemplate(templateController(['name' => '默认模板', 'html' => '<p>edited default</p>'])->saveTemplate($defaultId)->getCode() === 200, 'generated default is editable');
+
     checkTemplate(array_reduce($list['data'] ?? [], fn($ok, $row) => $ok && (int)$row['owner'] === $ownerOne, true), 'admin list contains only own templates');
     checkTemplate(!array_filter($list['data'] ?? [], fn($row) => (int)$row['id'] === $foreignId || (int)$row['owner'] === 0), 'foreign and system templates are hidden');
 
@@ -63,7 +77,7 @@ try {
     ])->saveShareGroup();
     checkTemplate($group->getCode() === 422, 'share group rejects another user template');
     $share = templateController([
-        'template_id' => $foreignId, 'account_list' => [(int)$account['id']],
+        'scope' => 'admin', 'template_id' => $foreignId, 'account_list' => [(int)$account['id']],
         'share_link' => 'iso' . bin2hex(random_bytes(4)),
     ])->saveShare();
     checkTemplate($share->getCode() === 422, 'share page rejects another user template');

@@ -696,7 +696,24 @@ class FrontendApiController extends BaseController
     {
         if ($owner <= 0 || Db::name('share_template')->where('owner', $owner)->where('is_default', 1)->find()) return;
         $id = Db::name('share_template')->where('owner', $owner)->order('id', 'asc')->value('id');
-        if ($id) Db::name('share_template')->where('id', (int)$id)->update(['is_default' => 1]);
+        if ($id) {
+            Db::name('share_template')->where('id', (int)$id)->update(['is_default' => 1]);
+            return;
+        }
+        $system = Db::name('share_template')->where('owner', 0)->where('is_default', 1)->order('id', 'asc')->find();
+        if (!$system) return;
+        Db::transaction(function () use ($owner, $system): void {
+            $id = Db::name('share_template')->insertGetId([
+                'owner' => $owner, 'name' => '默认模板', 'html' => $system['html'],
+                'notice_html' => $system['notice_html'], 'is_default' => 1,
+                'create_time' => date('Y-m-d H:i:s'), 'update_time' => date('Y-m-d H:i:s'),
+            ]);
+            // Only adopt untouched fallback content. Preserve customized pages.
+            Db::name('share')->where('owner', $owner)
+                ->where(function ($query) { $query->whereNull('template_id')->whereOr('template_id', 0); })
+                ->where('html', (string)$system['html'])->where('notice_html', (string)$system['notice_html'])
+                ->update(['template_id' => $id]);
+        });
     }
 
     /**
