@@ -47,6 +47,26 @@ class PollingWait:
 
 
 class ApiTest(unittest.TestCase):
+    def test_email_unlock_missing_reset_route_never_fills_or_submits_password(self):
+        flow = AppleFlow()
+        driver = Mock(current_url='https://iforgot.apple.com/password/unlock')
+        flow._get = Mock()
+        flow._raise_recovery_block = Mock()
+        flow._visible_fields_anywhere = Mock(return_value=[Mock()])
+        flow._has_exact_control_anywhere = Mock(return_value=False)
+        flow._fill_recovery_passwords = Mock()
+        flow._click_exact_control_anywhere = Mock()
+        with patch('selenium.webdriver.support.ui.WebDriverWait', ImmediateWait):
+            with self.assertRaises(FlowError) as raised:
+                flow._complete_email_reset(driver, {
+                    'reset_url': 'https://iforgot.apple.com/password/unlock',
+                    'new_password': 'FixturePass1@',
+                })
+        self.assertEqual('password_form_missing', raised.exception.code)
+        self.assertFalse(raised.exception.password_submitted)
+        flow._fill_recovery_passwords.assert_not_called()
+        flow._click_exact_control_anywhere.assert_not_called()
+
     def test_health_counts_running_jobs_before_browser_session_creation(self):
         from types import SimpleNamespace
         with patch.object(manager, "jobs", {

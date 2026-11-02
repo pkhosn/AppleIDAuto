@@ -1042,9 +1042,27 @@ class AppleFlow:
             raise FlowError("password_form_missing", "受控恢复密码不符合安全要求", stage="password_form")
         self._stage("email_link", lambda: self._get(driver, reset_url), False)
 
+        unlock_followed = False
+
         def password_form(current_driver):
+            nonlocal unlock_followed
             self._raise_recovery_block(current_driver)
-            return self._visible_fields_anywhere(current_driver, "input[type='password']", 2)
+            fields = self._visible_fields_anywhere(current_driver, "input[type='password']")
+            if len(fields) >= 2:
+                return fields
+            from urllib.parse import urlparse
+            page = urlparse(str(current_driver.current_url or ""))
+            if (len(fields) == 1 and page.hostname == "iforgot.apple.com"
+                    and page.path.rstrip('/') == '/password/unlock' and not unlock_followed):
+                # The emailed URL can lead to an unlock form asking for the
+                # CURRENT password. Follow its explicit reset route instead
+                # of filling our new password into that unrelated field.
+                labels = ("forgot password?", "忘记密码？", "忘记密码?",
+                          "忘記密碼？", "忘記密碼?")
+                if self._has_exact_control_anywhere(current_driver, labels, include_links=True):
+                    unlock_followed = True
+                    self._click_exact_control_anywhere(current_driver, labels, include_links=True)
+            return False
 
         try:
             inputs = WebDriverWait(driver, 25).until(password_form)[-2:]
@@ -1053,14 +1071,11 @@ class AppleFlow:
         except Exception as exc:
             raise FlowError("password_form_missing", "Apple 邮件链接未提供密码重置表单", stage="password_form") from exc
 
-        def fill_password():
-            for element in inputs:
-                element.clear()
-                element.send_keys(new_password)
-
-        self._stage("password_form", fill_password)
+        self._stage("password_form", lambda: self._fill_recovery_passwords(driver, new_password))
         self._stage("password_form", lambda: self._raise_password_policy_error(driver))
-        self._stage("password_submitted", lambda: self._click_button(driver, ("continue", "reset", "重设", "继续")), password_submitted=True)
+        self._stage("password_submitted", lambda: self._click_exact_control_anywhere(
+            driver, ("continue", "reset", "reset password", "重设密码", "重置密码", "继续", "繼續", "重設密碼"),
+        ), password_submitted=True)
         self._stage("password_submitted", lambda: self._confirm_password_change(
             driver, inputs, unconfirmed_code="password_reset_unconfirmed", rejected_code="password_reset_unconfirmed",
         ), password_submitted=True)

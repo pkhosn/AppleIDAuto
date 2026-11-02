@@ -9,6 +9,49 @@ from app.browser import AppleFlow
 
 @unittest.skipUnless(os.getenv("DEVICE_DOM_SELENIUM_URL"), "requires an idle Selenium node")
 class DeviceDOMTest(unittest.TestCase):
+    def test_email_reset_follows_unlock_forgot_link_without_submitting_current_password(self):
+        from selenium import webdriver
+        options = webdriver.ChromeOptions()
+        options.add_argument("--headless=new")
+        driver = webdriver.Remote(os.environ["DEVICE_DOM_SELENIUM_URL"], options=options)
+
+        class UnlockPage:
+            current_url = 'https://iforgot.apple.com/password/unlock'
+
+            def __getattr__(self, name):
+                return getattr(driver, name)
+
+        try:
+            for forgot, reset in [('忘记密码？', '重设密码'), ('Forgot password?', 'Reset password')]:
+                with self.subTest(language=forgot):
+                    driver.get('about:blank')
+                    driver.execute_script('''document.body.innerHTML = `
+                      <div id="unlock"><input type="password" oninput="window.oldPasswordTouched=true">
+                      <button onclick="window.unlockSubmitted=true">继续</button>
+                      <a href="#" onclick="event.preventDefault();window.linkClicks=(window.linkClicks||0)+1;
+                        document.getElementById('unlock').hidden=true;
+                        document.getElementById('reset').hidden=false;">${arguments[0]}</a></div>
+                      <div id="reset" hidden>
+                        <input id="first" type="password">
+                        <input id="second" type="password" oninput="if(!window.cleared){window.cleared=true;first.value='';}">
+                        <button disabled id="submit" onclick="window.resetSubmitted=true">${arguments[1]}</button>
+                      </div>`;
+                      document.addEventListener('input',()=>{submit.disabled=!(first.value && first.value===second.value);});
+                    ''', forgot, reset)
+                    flow = AppleFlow()
+                    def confirm(*args, **kwargs):
+                        self.assertTrue(driver.execute_script('return !!window.resetSubmitted'))
+                    with patch.object(flow, '_get'), patch.object(flow, '_confirm_password_change', side_effect=confirm):
+                        result = flow._complete_email_reset(UnlockPage(), {
+                            'reset_url': 'https://iforgot.apple.com/password/unlock',
+                            'new_password': 'FixturePass1@',
+                        })
+                    self.assertTrue(result['password_change_confirmed'])
+                    self.assertEqual(1, driver.execute_script('return window.linkClicks'))
+                    self.assertFalse(driver.execute_script('return !!window.oldPasswordTouched || !!window.unlockSubmitted'))
+        finally:
+            driver.quit()
+
     def test_unresponsive_card_retry_requires_unchanged_unobscured_list(self):
         from selenium import webdriver
         from selenium.webdriver.support.ui import WebDriverWait
