@@ -50,25 +50,25 @@ export function AppShell({ bootstrap }: { bootstrap: BootstrapData }) {
   return (
     <SidebarProvider>
       <Sidebar collapsible="icon">
-        <SidebarHeader className="h-20 justify-center border-b px-4">
-          <NavLink to={preview?"/":"/user/index"} className="flex items-center gap-2 overflow-hidden px-1">
+        <SidebarHeader className="h-20 justify-center border-b px-4 group-data-[collapsible=icon]:px-2">
+          <NavLink to={preview?"/":"/user/index"} className="flex items-center gap-2 overflow-hidden px-1 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0">
             <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground"><Settings2 className="size-5" /></span>
             <span className="truncate text-base font-semibold group-data-[collapsible=icon]:hidden">{siteName}</span>
           </NavLink>
         </SidebarHeader>
         <SidebarContent>
-          <SidebarGroup className="p-3">
+          <SidebarGroup className="p-3 group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:px-2">
             <SidebarGroupLabel className="h-10 px-3 text-sm">{admin ? "管理控制台" : "业务中心"}</SidebarGroupLabel>
             <SidebarGroupContent><SidebarMenu>{navigation.map(([label, path, Icon]) => (
               <SidebarMenuItem key={path}><SidebarMenuButton tooltip={label} isActive={location.pathname === path} render={<NavLink to={path} />}><Icon /><span>{label}</span></SidebarMenuButton></SidebarMenuItem>
             ))}</SidebarMenu></SidebarGroupContent>
           </SidebarGroup>
         </SidebarContent>
-        <SidebarFooter className="border-t p-3">
+        <SidebarFooter className="border-t p-3 group-data-[collapsible=icon]:px-2">
           <SidebarMenu><SidebarMenuItem>
-            <DropdownMenu><DropdownMenuTrigger render={<SidebarMenuButton size="lg" />}>
-              <Avatar className="size-10"><AvatarFallback className="bg-primary/10 text-base text-primary">{bootstrap.user?.username?.slice(0, 1).toUpperCase()}</AvatarFallback></Avatar>
-              <div className="min-w-0 flex-1 text-left text-base leading-tight"><span className="block truncate font-medium">{bootstrap.user?.username}</span><span className="block truncate text-sm text-muted-foreground">{canAdmin ? "管理员" : "标准用户"}</span></div><ChevronDown className="ml-auto size-5" />
+            <DropdownMenu><DropdownMenuTrigger render={<SidebarMenuButton size="lg" aria-label="账号菜单" />}>
+              <Avatar className="size-10 shrink-0 group-data-[collapsible=icon]:size-8"><AvatarFallback className="bg-primary/10 text-base text-primary">{bootstrap.user?.username?.slice(0, 1).toUpperCase()}</AvatarFallback></Avatar>
+              <div className="min-w-0 flex-1 text-left text-base leading-tight group-data-[collapsible=icon]:hidden"><span className="block truncate font-medium">{bootstrap.user?.username}</span><span className="block truncate text-sm text-muted-foreground">{canAdmin ? "管理员" : "标准用户"}</span></div><ChevronDown className="ml-auto size-5 group-data-[collapsible=icon]:hidden" />
             </DropdownMenuTrigger><DropdownMenuContent side="top" align="end" className="w-56">
               <DropdownMenuGroup>
                 <DropdownMenuLabel>当前工作区</DropdownMenuLabel>
