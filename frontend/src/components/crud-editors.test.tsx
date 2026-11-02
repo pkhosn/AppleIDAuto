@@ -3,9 +3,34 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { AccountCredentials, DeleteAction, ShareEditor, pageTemplateChoices } from "./crud-editors"
+import { AccountCredentials, CopyAccountInfo, SecurityQuestionSelect, DeleteAction, ShareEditor, pageTemplateChoices } from "./crud-editors"
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
+
+describe("account information controls", () => {
+  it("offers six questions per group and preserves existing custom questions", () => {
+    const change = vi.fn()
+    render(<SecurityQuestionSelect index={0} value="旧问题" onChange={change} />)
+    const select = screen.getByRole("combobox", { name: "密保问题 1" })
+    expect(select).toHaveValue("旧问题")
+    expect(screen.getAllByRole("option")).toHaveLength(8)
+    fireEvent.change(select, { target: { value: "你的第一个宠物叫什么名字?" } })
+    expect(change).toHaveBeenCalledWith("你的第一个宠物叫什么名字?")
+  })
+
+  it("copies the requested six fields through the scoped credential endpoint", async () => {
+    const user = userEvent.setup()
+    const write = vi.spyOn(navigator.clipboard, "writeText").mockResolvedValue()
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
+      success: true, data: { password: "FixturePass!", answer1: "小明", answer2: "医生", answer3: "北京", mailbox_password: "NeverCopyMail" },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }))
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } })
+    render(<QueryClientProvider client={client}><CopyAccountInfo row={{ id: 5, username: "fixture@example.test", dob: "2000-01-02" }} admin /></QueryClientProvider>)
+    await user.click(screen.getByRole("button", { name: "复制账号信息" }))
+    await vi.waitFor(() => expect(write).toHaveBeenCalledWith("账号fixture@example.test 密码FixturePass! 朋友小明 工作医生 父母北京 生日2000-01-02"))
+    expect(String(fetch.mock.calls[0][0])).toContain("/accounts/5/reveal-password?scope=admin")
+  })
+})
 
 describe("AccountCredentials", () => {
   it("reveals the stored credentials without asking for the panel password again", async () => {

@@ -74,6 +74,25 @@ type AccountValues = {
   profile_observed: Record<string, unknown>
 }
 
+const securityQuestions = [
+  ["你少年时代最好的朋友叫什么名字?", "你的第一个宠物叫什么名字?", "你学会做的第一道菜是什么?", "你第一次去电影院看的是哪一部电影?", "你第一次坐飞机是去哪里?", "你上小学时最喜欢的老师姓什么?"],
+  ["你的理想工作是什么?", "你小时候最喜欢哪一本书?", "你拥有的第一辆车是什么型号?", "你童年时代的绰号是什么?", "你在学生时代最喜欢哪个电影明星或角色?", "你在学生时代最喜欢哪个歌手或乐队?"],
+  ["你的父母是在哪里认识的?", "你的第一个上司叫什么名字?", "你从小长大的那条街叫什么?", "你去过的第一个海滨浴场是哪一个?", "你购买的第一张专辑是什么?", "你最喜欢哪个球队?"],
+]
+
+export function SecurityQuestionSelect({ index, value, onChange }: { index: number; value: string; onChange: (value: string) => void }) {
+  const id = useId()
+  const choices = securityQuestions[index]
+  return <div className="space-y-2">
+    <Label htmlFor={id}>密保问题 {index + 1}</Label>
+    <select id={id} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm" value={value} onChange={event => onChange(event.target.value)}>
+      <option value="">选择第{["一", "二", "三"][index]}个问题</option>
+      {value && !choices.includes(value) && <option value={value}>{value}（当前问题）</option>}
+      {choices.map(question => <option key={question} value={question}>{question}</option>)}
+    </select>
+  </div>
+}
+
 const accountDefaults: AccountValues = {
   automation_schedule: defaultCycles,
   shared_cycle: defaultSharedCycle,
@@ -281,11 +300,11 @@ export function AccountEditor({ row, admin, onSaved }: { row?: Entity; admin: bo
               <div className="space-y-2"><Label>代理节点</Label><select className="h-8 w-full rounded-lg border bg-background px-2.5 text-sm" value={values.proxy_id} onChange={e=>setValues(v=>({...v,proxy_id:Number(e.target.value)}))}><option value={0}>自动分配 / 不指定</option>{(proxies.data?.data.nodes??[]).map(node=><option key={String(node.id)} value={Number(node.id)}>{String(node.name??`节点 ${node.id}`)} · {String(node.protocol??"").toUpperCase()}</option>)}</select></div>
               <Field label="最低手动解锁间隔（分钟）" type="number" value={String(values.min_manual_unlock)} onChange={(min_manual_unlock) => setValues((v) => ({ ...v, min_manual_unlock: Number(min_manual_unlock) }))} />
               <div className="space-y-2 sm:col-span-2"><Label>密保问题与答案</Label><div className="grid gap-3 rounded-lg border p-3 sm:grid-cols-2">
-                <Field label="密保问题 1" value={values.question1} onChange={(question1) => setValues((v) => ({ ...v, question1 }))} />
+                <SecurityQuestionSelect index={0} value={values.question1} onChange={(question1) => setValues((v) => ({ ...v, question1 }))} />
                 <Field label="密保答案 1" value={values.answer1} onChange={(answer1) => setValues((v) => ({ ...v, answer1 }))} />
-                <Field label="密保问题 2" value={values.question2} onChange={(question2) => setValues((v) => ({ ...v, question2 }))} />
+                <SecurityQuestionSelect index={1} value={values.question2} onChange={(question2) => setValues((v) => ({ ...v, question2 }))} />
                 <Field label="密保答案 2" value={values.answer2} onChange={(answer2) => setValues((v) => ({ ...v, answer2 }))} />
-                <Field label="密保问题 3" value={values.question3} onChange={(question3) => setValues((v) => ({ ...v, question3 }))} />
+                <SecurityQuestionSelect index={2} value={values.question3} onChange={(question3) => setValues((v) => ({ ...v, question3 }))} />
                 <Field label="密保答案 3" value={values.answer3} onChange={(answer3) => setValues((v) => ({ ...v, answer3 }))} />
               </div></div>
               <div className="space-y-2 sm:col-span-2">
@@ -420,6 +439,20 @@ type CredentialValues = {
   question3: string
   answer3: string
   mailbox_password: string
+}
+
+export function CopyAccountInfo({ row, admin }: { row: Entity; admin: boolean }) {
+  const copy = useMutation({
+    mutationFn: async () => {
+      const response = await post<CredentialValues>(withScope(`accounts/${row.id}/reveal-password`, admin), {})
+      const data = response.data
+      const value = (item: unknown) => String(item ?? "").trim() || "未记录"
+      await navigator.clipboard.writeText(`账号${value(row.username)} 密码${value(data.password)} 朋友${value(data.answer1)} 工作${value(data.answer2)} 父母${value(data.answer3)} 生日${value(row.dob)}`)
+    },
+    onSuccess: () => { copy.reset(); toast.success("账号信息已复制") },
+    onError: error => { copy.reset(); toast.error(error instanceof Error ? error.message : "复制失败，请重试") },
+  })
+  return <Button size="sm" variant="ghost" disabled={copy.isPending} onClick={() => copy.mutate()}><Copy />{copy.isPending ? "正在复制…" : "复制账号信息"}</Button>
 }
 
 /**
