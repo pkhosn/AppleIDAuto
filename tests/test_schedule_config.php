@@ -20,6 +20,13 @@ $originalSession = Session::get('user_id');
 $failed = false;
 Db::startTrans();
 try {
+    $branding = $app->siteConfigService->branding();
+    check($app->siteConfigService->saveBranding(array_merge($branding, ['share_watermark_enabled' => true, 'share_watermark_text' => '自定义水印']))['status'], 'watermark saves');
+    check($app->siteConfigService->branding()['share_watermark_text'] === '自定义水印', 'watermark text round trips');
+    check(!$app->siteConfigService->saveBranding(array_merge($branding, ['share_watermark_enabled' => true, 'share_watermark_text' => '']))['status'], 'enabled blank watermark rejected');
+    check($app->siteConfigService->saveBranding(array_merge($branding, ['share_watermark_enabled' => false, 'share_watermark_text' => '']))['status'], 'watermark can be disabled');
+    check(!$app->siteConfigService->branding()['share_watermark_enabled'], 'disabled setting round trips');
+    $app->siteConfigService->saveBranding($branding);
     $defaults = ['active' => true, 'features' => ['password_check' => 30, 'password_update' => 1440, 'two_factor' => 30, 'profile_restore' => 360, 'device_cleanup' => 30]];
     $new = Cycles::resolve([], $defaults);
     check($new['features']['password_update']['effective_minutes'] === 1440, 'new account global default');

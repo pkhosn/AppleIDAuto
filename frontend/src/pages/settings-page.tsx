@@ -13,20 +13,20 @@ import { Switch } from "@/components/ui/switch"
 import { ErrorState, PageSkeleton } from "@/components/page-state"
 
 type Settings = { branding: Record<string, unknown>; registration: Record<string, unknown>; payment: Record<string, unknown> }
-type BrandingValues = { site_name: string; site_description: string; site_logo: string; admin_path: string }
+type BrandingValues = { site_name: string; site_description: string; site_logo: string; admin_path: string; share_watermark_enabled: boolean; share_watermark_text: string }
 type SecurityValues = { registration_enabled: boolean; turnstile_enabled: boolean; turnstile_site_key: string; turnstile_secret_key: string; turnstile_hostname: string }
 type PaymentValues = { gateway: string; pid: string; merchant_key: string; status: boolean }
 
 export function SettingsPage({ section }: { section: "branding" | "registration" | "payment" }) {
   const query = useQuery({ queryKey: ["settings"], queryFn: () => api<Settings>("admin/settings") })
   const client = useQueryClient()
-  const branding = useForm<BrandingValues>({ defaultValues: { site_name: "", site_description: "", site_logo: "", admin_path: "admin" } })
+  const branding = useForm<BrandingValues>({ defaultValues: { site_name: "", site_description: "", site_logo: "", admin_path: "admin", share_watermark_enabled: true, share_watermark_text: "⚠️禁止在【设置】登录" } })
   const security = useForm<SecurityValues>({ defaultValues: { registration_enabled: false, turnstile_enabled: false, turnstile_site_key: "", turnstile_secret_key: "", turnstile_hostname: "" } })
   const payment = useForm<PaymentValues>({ defaultValues: { gateway: "", pid: "", merchant_key: "", status: false } })
   useEffect(() => {
     if (!query.data) return
     const b = query.data.data.branding, r = query.data.data.registration, p = query.data.data.payment ?? {}
-    branding.reset({ site_name: String(b.site_name ?? ""), site_description: String(b.site_description ?? ""), site_logo: String(b.site_logo ?? ""), admin_path: String(b.admin_path ?? "admin") })
+    branding.reset({ site_name: String(b.site_name ?? ""), site_description: String(b.site_description ?? ""), site_logo: String(b.site_logo ?? ""), admin_path: String(b.admin_path ?? "admin"), share_watermark_enabled: Boolean(b.share_watermark_enabled ?? true), share_watermark_text: String(b.share_watermark_text ?? "⚠️禁止在【设置】登录") })
     security.reset({ registration_enabled: Boolean(r.registration_enabled), turnstile_enabled: Boolean(r.turnstile_enabled), turnstile_site_key: String(r.turnstile_site_key ?? ""), turnstile_secret_key: "", turnstile_hostname: String(r.turnstile_hostname ?? "") })
     payment.reset({ gateway: String(p.gateway ?? ""), pid: String(p.pid ?? ""), merchant_key: "", status: Boolean(p.status ?? false) })
   }, [query.data, branding, security, payment])
@@ -58,6 +58,12 @@ export function SettingsPage({ section }: { section: "branding" | "registration"
               {[["site_name", "站点名称", "AppleID 自动化管理"], ["site_description", "站点描述", "统一管理账号、任务与代理网络"], ["site_logo", "Logo 地址", "https://example.com/logo.svg"], ["admin_path", "管理端路径", "admin"]].map(([key, label, placeholder]) => (
                 <div className="space-y-2" key={key}><Label htmlFor={key}>{label}</Label><Input id={key} placeholder={placeholder} {...branding.register(key as keyof BrandingValues, { required: key === "site_name" || key === "admin_path" })} /></div>
               ))}
+              <div className="space-y-4 rounded-lg border p-4">
+                <h3 className="font-medium">分享页水印</h3>
+                <p className="text-sm text-muted-foreground">普通分享页与 iframe 账号卡片共用以下设置。</p>
+                <Toggle label="启用水印" checked={branding.watch("share_watermark_enabled")} onCheckedChange={v => branding.setValue("share_watermark_enabled", v, { shouldDirty: true })} />
+                <div className="space-y-2"><Label htmlFor="share-watermark-text">水印文字</Label><Input id="share-watermark-text" maxLength={40} {...branding.register("share_watermark_text", { validate: value => !branding.getValues("share_watermark_enabled") || Boolean(value.trim()) })} /><p className="text-xs text-muted-foreground">最多 40 个字符；启用时不能为空。</p></div>
+              </div>
               <Button type="submit" className="w-fit" disabled={mutation.isPending}>{mutation.isPending ? <LoaderCircle className="animate-spin" /> : <Save />}保存站点设置</Button>
             </CardContent>
           </Card>

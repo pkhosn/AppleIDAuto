@@ -9,6 +9,13 @@ use think\response\View;
 
 class ShareController extends BaseController
 {
+    protected function initialize()
+    {
+        $branding = $this->app->siteConfigService->branding();
+        \think\facade\View::assign('shareWatermarkEnabled', $branding['share_watermark_enabled']);
+        \think\facade\View::assign('shareWatermarkText', $branding['share_watermark_text']);
+    }
+
     public function index(Request $request): View
     {
         $share = $request->share;

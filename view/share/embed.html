@@ -22,7 +22,7 @@
 <div class="share-account-grid">
 {volist name="accounts" id="account" key="index"}
 <article class="share-account-card share-watermark-host" aria-label="共享账号">
-<div class="share-watermark share-watermark-card" aria-hidden="true">⚠️禁止在【设置】登录</div>
+{if $shareWatermarkEnabled}<div class="share-watermark share-watermark-card" aria-hidden="true">{$shareWatermarkText}</div>{/if}
 <header class="share-account-card-head">
 <h2>账号 #{$index}</h2>
 <span class="share-status-badge {$account->status?'share-status-good':'share-status-bad'}">{$account->status?'状态正常':'状态异常'}</span>

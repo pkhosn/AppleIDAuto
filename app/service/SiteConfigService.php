@@ -19,6 +19,8 @@ class SiteConfigService extends Service
         'site_description' => '统一管理账号、分享页与自动化任务。',
         'site_logo' => '',
         'admin_path' => 'admin',
+        'share_watermark_enabled' => '1',
+        'share_watermark_text' => '⚠️禁止在【设置】登录',
     ];
 
     public function register(): void
@@ -89,6 +91,8 @@ class SiteConfigService extends Service
             'site_logo' => $settings['site_logo'],
             'admin_path' => $settings['admin_path'],
             'admin_base' => '/' . $settings['admin_path'],
+            'share_watermark_enabled' => $this->bool($settings['share_watermark_enabled']),
+            'share_watermark_text' => $settings['share_watermark_text'],
         ];
     }
 
@@ -112,7 +116,16 @@ class SiteConfigService extends Service
         if ($logo !== '' && (!filter_var($logo, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $logo) || strlen($logo) > 1024)) {
             return ['status' => false, 'msg' => 'Logo 必须是 http 或 https 图片地址'];
         }
+        $current = $this->branding();
+        $watermarkEnabled = array_key_exists('share_watermark_enabled', $data)
+            ? !empty($data['share_watermark_enabled']) : $current['share_watermark_enabled'];
+        $watermarkText = trim((string)($data['share_watermark_text'] ?? $current['share_watermark_text']));
+        if (mb_strlen($watermarkText) > 40 || ($watermarkEnabled && $watermarkText === '')) {
+            return ['status' => false, 'msg' => '启用水印时请填写文字，最多 40 个字符'];
+        }
         $this->replace([
+            'share_watermark_enabled' => $watermarkEnabled ? '1' : '0',
+            'share_watermark_text' => $watermarkText,
             'site_name' => $name,
             'site_description' => $description,
             'site_logo' => $logo,

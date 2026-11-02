@@ -14,7 +14,7 @@
 <link rel="stylesheet" href="/static/css/share-watermark.css?v=20261102-1">
 </head>
 <body class="share-page">
-<div class="share-watermark share-watermark-page" aria-hidden="true">⚠️禁止在【设置】登录</div>
+{if $shareWatermarkEnabled}<div class="share-watermark share-watermark-page" aria-hidden="true">{$shareWatermarkText}</div>{/if}
 <main class="share-container" aria-labelledby="share-result-title">
     <div id="share-expired-note" class="share-expired-note" hidden>分享页已失效<br><small>可能原因：已过期 / 已达到访问次数上限 / 链接已被删除。<br>如需继续使用，请联系提供方重新生成分享链接。</small></div>
     <header class="share-hero">
