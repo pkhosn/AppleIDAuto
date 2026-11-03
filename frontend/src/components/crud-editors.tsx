@@ -627,6 +627,7 @@ export function ShareEditor({ row, admin, onSaved }: { row?: Entity; admin: bool
     onSuccess: (r) => {
       toast.success(r.message)
       if (r.data?.share_link) setCreated({ share_link: String(r.data.share_link), url: String(r.data.url ?? shareUrl(String(r.data.share_link))) })
+      if (row?.id) setOpen(false)
       onSaved()
     },
     onError: (e: Error) => toast.error(e.message),
@@ -952,7 +953,7 @@ export function UserEditor({ row, onSaved }: { row?: Entity; onSaved: () => void
               value={String(values.min_manual_interval)}
               onChange={(min_manual_interval) => setValues((v) => ({ ...v, min_manual_interval: Number(min_manual_interval) }))}
             />
-            <Field label="余额" type="number" value={values.balance} onChange={(balance) => setValues((v) => ({ ...v, balance }))} />
+            <Field label="账户余额（元，填写调整后的总额）" type="number" value={values.balance} onChange={(balance) => setValues((v) => ({ ...v, balance }))} />
             <Field
               label="有效期"
               type="datetime-local"

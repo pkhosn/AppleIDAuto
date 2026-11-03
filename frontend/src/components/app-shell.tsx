@@ -1,7 +1,7 @@
 import {
   Activity, BellRing, Boxes, CheckCircle2, ChevronDown, CircleUserRound, CreditCard, FileClock,
   Gauge, KeyRound, Layers3, LayoutTemplate, LogOut, Moon, Network, Package, PanelTop, Settings2, Share2,
-  ShieldCheck, Sun, UsersRound, Workflow,
+  ShieldCheck, Sun, UsersRound, Wallet, Workflow,
 } from "lucide-react"
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom"
 import { useTheme } from "next-themes"
@@ -84,6 +84,7 @@ export function AppShell({ bootstrap }: { bootstrap: BootstrapData }) {
         <header className="sticky top-0 z-20 flex h-20 items-center gap-4 border-b bg-background/90 px-5 backdrop-blur md:px-8">
           <SidebarTrigger className="size-11 [&_svg]:size-5" />
           <div className="min-w-0 flex-1"><h1 className="truncate text-lg font-semibold">{navigation.find(([,path])=>path===location.pathname)?.[0] ?? (admin ? "管理控制台" : "工作台")}</h1><p className="hidden text-sm text-muted-foreground sm:block">安全、清晰地管理账号与自动化服务</p></div>
+          <Button variant="outline" size="sm" aria-label="账户余额与充值" onClick={() => navigate(preview ? "/plans" : "/user/plan")}><Wallet className="size-4" /><span>￥{Number(bootstrap.user?.balance ?? 0).toFixed(2)}</span><span className="hidden sm:inline">充值</span></Button>
           <Button variant="ghost" size="icon" className="size-11 [&_svg]:size-5" aria-label="切换主题" onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}>{resolvedTheme === "dark" ? <Sun /> : <Moon />}</Button>
         </header>
         <main className="mx-auto w-full max-w-[1600px] flex-1 p-5 md:p-8"><Outlet /></main>

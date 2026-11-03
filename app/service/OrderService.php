@@ -55,7 +55,7 @@ class OrderService extends Service
             return ['status' => false, 'msg' => '支付方式无效'];
         }
         $amount = round($amount, 2);
-        if ($amount < 1 || $amount > 100000) {
+        if (!is_finite($amount) || $amount < 1 || $amount > 100000) {
             return ['status' => false, 'msg' => '充值金额应在 1 至 100000 之间'];
         }
         $orderNo = date('YmdHis') . secure_token(8);
@@ -141,6 +141,9 @@ class OrderService extends Service
                 return ['status' => false, 'msg' => '用户不存在'];
             }
             $price = (float)$plan['price'];
+            if (!is_finite($price) || $price < 0) {
+                return ['status' => false, 'msg' => '套餐金额无效'];
+            }
             if ((float)$user['balance'] < $price) {
                 return ['status' => false, 'msg' => '余额不足，请先充值'];
             }

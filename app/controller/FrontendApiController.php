@@ -917,6 +917,10 @@ class FrontendApiController extends BaseController
         if ($username === '' || (!$id && $password === '')) return $this->fail('用户名和密码不能为空', 422);
         $notifyMode = (string)$this->request->param('tg_notify_mode', 'all');
         if (!in_array($notifyMode, ['success', 'failure', 'all'], true)) return $this->fail('Telegram 推送策略无效', 422);
+        $balance = trim((string)$this->request->param('balance', '0'));
+        if (!preg_match('/^\d{1,8}(?:\.\d{1,2})?$/D', $balance)) {
+            return $this->fail('余额须为非负金额，最多两位小数', 422);
+        }
         if ($id) $user = (new User())->fetch($id);
         else { $created = (new User())->addUser($username, $password); if (!$created['status']) return $this->fail($created['msg'], 409); $user = (new User())->where('username', $username)->find(); }
         if (!$user) return $this->fail('用户不存在', 404);
@@ -926,7 +930,7 @@ class FrontendApiController extends BaseController
             'tg_notify_mode' => $notifyMode,
             'is_admin' => (bool)$this->request->param('is_admin', false) ? 1 : 0, 'vip_expire_at' => $this->request->param('vip_expire_at') ?: null,
             'max_accounts' => max(0, (int)$this->request->param('max_accounts', 5)), 'min_manual_interval' => max(0, (int)$this->request->param('min_manual_interval', 0)),
-            'max_share_pages' => max(0, (int)$this->request->param('max_share_pages', 1)), 'balance' => number_format((float)$this->request->param('balance', 0), 2, '.', ''),
+            'max_share_pages' => max(0, (int)$this->request->param('max_share_pages', 1)), 'balance' => number_format((float)$balance, 2, '.', ''),
             'status' => (bool)$this->request->param('status', true) ? 1 : 0]);
         return $result['status'] ? $this->ok(null, $result['msg']) : $this->fail($result['msg'], 409);
     }

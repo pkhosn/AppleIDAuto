@@ -139,5 +139,6 @@ describe("ShareEditor embedding", () => {
     fireEvent.change(origins, { target: { value: "" } })
     fireEvent.click(screen.getByRole("button", { name: "保存分享" }))
     await vi.waitFor(() => expect(saved).toMatchObject({ embed_enabled: true, embed_origins: "" }))
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
   })
 })

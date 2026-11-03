@@ -75,6 +75,25 @@ try {
     }
     $user = Db::name('user')->insertGetId(['username' => 'schedule-fixture-' . bin2hex(random_bytes(6)), 'password' => password_hash(bin2hex(random_bytes(12)), PASSWORD_DEFAULT), 'status' => 1, 'is_admin' => 0]);
     Session::set('user_id', $user);
+    $recharge = $app->orderService->createRechargeOrder($user, 25.50, 'alipay');
+    check($recharge['status'], 'recharge order created');
+    check(!$app->orderService->paid($recharge['order_no'], 'fixture-trade', '20.00', 'alipay')['status'], 'wrong callback amount rejected');
+    check($app->orderService->paid($recharge['order_no'], 'fixture-trade', '25.50', 'alipay')['status'], 'recharge credited');
+    check($app->orderService->paid($recharge['order_no'], 'fixture-trade', '25.50', 'alipay')['status'], 'duplicate callback accepted idempotently');
+    check((float)Db::name('user')->where('id', $user)->value('balance') === 25.50, 'duplicate callback never double credits');
+    $planId = Db::name('plan')->insertGetId(['name' => 'balance-fixture', 'price' => '10.25', 'days' => 30, 'max_accounts' => 5, 'min_manual_interval' => 0, 'enable_share' => 1, 'max_share_pages' => 5, 'status' => 1]);
+    check($app->orderService->balancePurchase($user, $planId)['status'], 'balance buys subscription');
+    check((float)Db::name('user')->where('id', $user)->value('balance') === 15.25, 'exact subscription price deducted');
+    Db::name('plan')->where('id', $planId)->update(['price' => '20.00']);
+    check(!$app->orderService->balancePurchase($user, $planId)['status'], 'insufficient balance rejected');
+    check((float)Db::name('user')->where('id', $user)->value('balance') === 15.25, 'insufficient balance leaves funds unchanged');
+    Db::name('user')->where('id', $user)->update(['is_admin' => 1]);
+    $username = (string)Db::name('user')->where('id', $user)->value('username');
+    check(controller(['username' => $username, 'is_admin' => true, 'balance' => '100.50'])->saveAdminUser($user)->getCode() === 200, 'admin edits balance');
+    check((float)Db::name('user')->where('id', $user)->value('balance') === 100.50, 'admin balance persisted');
+    check(controller(['username' => $username, 'is_admin' => true, 'balance' => '-1'])->saveAdminUser($user)->getCode() === 422, 'negative admin balance rejected');
+    Db::name('user')->where('id', $user)->update(['is_admin' => 0, 'vip_expire_at' => null]);
+
     check(!$app->entitlementService->canAddAccount($user)['status'], 'ordinary user still needs subscription');
     Db::name('user')->where('id', $user)->update(['is_admin' => 1, 'max_accounts' => 5, 'vip_expire_at' => '2000-01-01 00:00:00']);
     check($app->entitlementService->canAddAccount($user)['status'], 'admin account quota works without subscription');

@@ -46,7 +46,7 @@ const configs: Record<string, { title: string; description: string; columns: Col
     { key: "paid_at", label: "支付时间" }, { key: "created_at", label: "创建时间" },
   ]},
   users: { title: "用户与权限", description: "管理平台用户、配额、有效期与管理权限。", columns: [
-    { key: "username", label: "用户" }, { key: "is_admin", label: "管理员", render: statusNode },
+    { key: "username", label: "用户" }, { key: "balance", label: "余额", render: value => `￥${Number(value ?? 0).toFixed(2)}` }, { key: "is_admin", label: "管理员", render: statusNode },
     { key: "status", label: "状态", render: statusNode }, { key: "max_accounts", label: "账号配额" },
     { key: "max_share_pages", label: "分享配额" }, { key: "vip_expire_at", label: "服务有效期" },
   ]},
