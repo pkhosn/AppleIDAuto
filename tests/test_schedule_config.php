@@ -75,6 +75,18 @@ try {
     }
     $user = Db::name('user')->insertGetId(['username' => 'schedule-fixture-' . bin2hex(random_bytes(6)), 'password' => password_hash(bin2hex(random_bytes(12)), PASSWORD_DEFAULT), 'status' => 1, 'is_admin' => 0]);
     Session::set('user_id', $user);
+    check(!$app->entitlementService->canAddAccount($user)['status'], 'ordinary user still needs subscription');
+    Db::name('user')->where('id', $user)->update(['is_admin' => 1, 'max_accounts' => 5, 'vip_expire_at' => '2000-01-01 00:00:00']);
+    check($app->entitlementService->canAddAccount($user)['status'], 'admin account quota works without subscription');
+    check($app->entitlementService->createWithinQuota($user, 'account', 1, true, fn() => 'allowed') === 'allowed', 'locked insertion permits admin within quota');
+    Db::name('user')->where('id', $user)->update(['max_accounts' => 0]);
+    check(!$app->entitlementService->canAddAccount($user)['status'], 'admin account quota is enforced');
+    $quotaRejected = false;
+    try { $app->entitlementService->createWithinQuota($user, 'account', 1, true, fn() => 'unexpected'); }
+    catch (InvalidArgumentException $e) { $quotaRejected = true; }
+    check($quotaRejected, 'locked insertion enforces admin quota');
+    Db::name('user')->where('id', $user)->update(['is_admin' => 0, 'max_accounts' => 5, 'vip_expire_at' => null]);
+
     check(controller(['features' => $defaults['features']])->updateSettings('automation')->getCode() === 403, 'global write requires admin');
     $existing = Db::name('account')->order('id')->find();
     if ($existing) {

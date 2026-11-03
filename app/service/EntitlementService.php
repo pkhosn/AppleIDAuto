@@ -31,7 +31,8 @@ class EntitlementService extends Service
             $user = Db::name('user')->where('id', $owner)->lock(true)->find();
             if (!$user) throw new \InvalidArgumentException('所属用户不存在');
             if ($check) {
-                if (empty($user['status']) || empty($user['vip_expire_at']) || strtotime($user['vip_expire_at']) < time()) {
+                $adminAccount = $kind === 'account' && !empty($user['is_admin']);
+                if (empty($user['status']) || (!$adminAccount && (empty($user['vip_expire_at']) || strtotime($user['vip_expire_at']) < time()))) {
                     throw new \InvalidArgumentException('请先购买有效订阅');
                 }
                 $query = Db::name($kind)->where('owner', $owner);
@@ -58,10 +59,14 @@ class EntitlementService extends Service
 
     public function canAddAccount(int $userId): array
     {
-        if (!$this->hasSubscription($userId)) {
+        $user = Db::name('user')->where('id', $userId)->find();
+        $adminAccount = $user && !empty($user['is_admin']);
+        if (!$adminAccount && !$this->hasSubscription($userId)) {
             return ['status' => false, 'msg' => '请先购买订阅后再添加 Apple 账号'];
         }
-        $active = $this->checkActive($userId);
+        $active = $adminAccount
+            ? ['status' => !empty($user['status']), 'msg' => '用户不可用']
+            : $this->checkActive($userId);
         if (!$active['status']) {
             return $active;
         }
