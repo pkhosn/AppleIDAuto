@@ -47,7 +47,13 @@ class PlanService extends Service
             if (!Db::name('plan')->where('id', $id)->find()) {
                 return ['status' => false, 'msg' => '套餐不存在'];
             }
-            Db::name('plan')->where('id', $id)->update($data);
+            Db::transaction(function () use ($id, $data): void {
+                Db::name('plan')->where('id', $id)->update($data);
+                Db::name('user')->where('current_plan_id', $id)->where('quota_custom', 0)->update([
+                    'max_accounts' => $data['max_accounts'], 'max_share_pages' => empty($data['enable_share']) ? 0 : $data['max_share_pages'],
+                    'min_manual_interval' => $data['min_manual_interval'],
+                ]);
+            });
             return ['status' => true, 'msg' => '修改成功'];
         }
         Db::name('plan')->insert($data);
@@ -56,7 +62,7 @@ class PlanService extends Service
 
     public function deletePlan(int $id): array
     {
-        $used = Db::name('order')->where('plan_id', $id)->count();
+        $used = Db::name('order')->where('plan_id', $id)->count() + Db::name('user')->where('current_plan_id', $id)->count() + Db::name('redeem_code')->where('plan_id', $id)->count();
         if ($used > 0) {
             Db::name('plan')->where('id', $id)->update(['status' => 0]);
             return ['status' => true, 'msg' => '套餐已有订单，已改为停用'];

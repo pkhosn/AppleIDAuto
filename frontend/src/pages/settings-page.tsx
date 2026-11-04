@@ -76,11 +76,11 @@ export function SettingsPage({ section }: { section: "branding" | "registration"
     const keyConfigured = Boolean(query.data?.data.payment?.merchant_key_configured)
     return (
       <div className="max-w-3xl space-y-5">
-        <div><h2 className="text-2xl font-semibold">支付配置</h2><p className="mt-1 text-sm text-muted-foreground">对接易支付网关后，用户才可购买订阅。</p></div>
+        <div><h2 className="text-2xl font-semibold">支付配置</h2><p className="mt-1 text-sm text-muted-foreground">对接易支付网关后，用户才可购买套餐。</p></div>
         <Alert><CreditCard /><AlertTitle>易支付接口</AlertTitle><AlertDescription>商户密钥仅保存不回显；留空提交表示保持不变{keyConfigured ? "（当前已配置）" : ""}。</AlertDescription></Alert>
         <form onSubmit={payment.handleSubmit((v) => mutation.mutate(v))}>
           <Card>
-            <CardHeader><CardTitle>网关与商户</CardTitle><CardDescription>启用后，订阅购买将跳转到此网关完成收款。</CardDescription></CardHeader>
+            <CardHeader><CardTitle>网关与商户</CardTitle><CardDescription>启用后，套餐购买将跳转到此网关完成收款。</CardDescription></CardHeader>
             <CardContent className="grid gap-5">
               <div className="space-y-2"><Label htmlFor="payment-gateway">提交网关地址</Label><Input id="payment-gateway" placeholder="https://payment.example.com/submit.php" {...payment.register("gateway", { required: true })} /></div>
               <div className="space-y-2"><Label htmlFor="payment-pid">商户 ID</Label><Input id="payment-pid" placeholder="易支付商户号" {...payment.register("pid", { required: true })} /></div>

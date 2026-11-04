@@ -8,4 +8,5 @@ $app->initialize();
 $connection = think\facade\Db::connect();
 $connection->query('SELECT 1');
 app\service\ShareSchemaMigration::apply($connection->getPdo());
+app\service\PlanMembershipMigration::apply($connection->getPdo());
 echo "Share schema upgrade completed.\n";

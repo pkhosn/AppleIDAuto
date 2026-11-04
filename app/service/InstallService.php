@@ -184,6 +184,7 @@ class InstallService
         $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
         if ($tables && !array_diff(array_diff(self::REQUIRED_TABLES, ['share_group']), $tables)) {
             ShareSchemaMigration::apply($pdo);
+            PlanMembershipMigration::apply($pdo);
             $tables = $pdo->query('SHOW TABLES')->fetchAll(PDO::FETCH_COLUMN);
         }
         $missing = array_values(array_diff(self::REQUIRED_TABLES, $tables));

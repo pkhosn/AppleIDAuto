@@ -124,6 +124,7 @@ class FrontendApiController extends BaseController
         $failed = Db::name('account'); if ($owner) $failed->where('owner', $owner);
         return $this->ok(['accounts' => $this->app->accountService->countAll($owner),
             'shares' => $this->app->shareService->countAll($owner), 'users' => $this->adminScope() ? $this->app->userService->countAll() : null,
+            'membership' => $owner ? $this->app->entitlementService->membership($owner) : null,
             'running_tasks' => $tasks->where('task_status', 'running')->count(), 'failed_tasks' => $failed->where('task_status', 'failed')->count()]);
     }
 
@@ -980,12 +981,22 @@ class FrontendApiController extends BaseController
         else { $created = (new User())->addUser($username, $password); if (!$created['status']) return $this->fail($created['msg'], 409); $user = (new User())->where('username', $username)->find(); }
         if (!$user) return $this->fail('用户不存在', 404);
         if ($id === (int)Session::get('user_id') && !(bool)$this->request->param('is_admin', false)) return $this->fail('不能取消当前管理员的管理权限', 409);
+        $quotaCustom = (bool)$this->request->param('quota_custom', (bool)($user->quota_custom ?? true));
+        $quota = [];
+        foreach (['max_accounts' => 5, 'max_share_pages' => 1, 'min_manual_interval' => 0] as $field => $default) {
+            $quota[$field] = max(0, (int)$this->request->param($field, $default));
+        }
+        if (!$quotaCustom) {
+            $plan = $this->app->planService->fetch((int)($user->current_plan_id ?? 0));
+            if (!$plan) return $this->fail('当前用户尚未关联套餐，请使用自定义配额', 422);
+            $quota = ['max_accounts' => (int)$plan['max_accounts'], 'max_share_pages' => empty($plan['enable_share']) ? 0 : (int)$plan['max_share_pages'], 'min_manual_interval' => (int)$plan['min_manual_interval']];
+        }
         $result = $user->updateUser(['id' => $user->id, 'username' => $username, 'password' => $id ? $password : null,
             'tg_bot_token' => (string)$this->request->param('tg_bot_token', ''), 'tg_chat_id' => (string)$this->request->param('tg_chat_id', ''),
             'tg_notify_mode' => $notifyMode,
             'is_admin' => (bool)$this->request->param('is_admin', false) ? 1 : 0, 'vip_expire_at' => $this->request->param('vip_expire_at') ?: null,
-            'max_accounts' => max(0, (int)$this->request->param('max_accounts', 5)), 'min_manual_interval' => max(0, (int)$this->request->param('min_manual_interval', 0)),
-            'max_share_pages' => max(0, (int)$this->request->param('max_share_pages', 1)), 'balance' => number_format((float)$balance, 2, '.', ''),
+            'quota_custom' => (int)$quotaCustom, 'max_accounts' => $quota['max_accounts'], 'min_manual_interval' => $quota['min_manual_interval'],
+            'max_share_pages' => $quota['max_share_pages'], 'balance' => number_format((float)$balance, 2, '.', ''),
             'status' => (bool)$this->request->param('status', true) ? 1 : 0]);
         return $result['status'] ? $this->ok(null, $result['msg']) : $this->fail($result['msg'], 409);
     }

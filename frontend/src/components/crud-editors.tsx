@@ -874,6 +874,7 @@ type UserValues = {
   tg_notify_mode: "success" | "failure" | "all"
   is_admin: boolean
   status: boolean
+  quota_custom: boolean
   max_accounts: number
   max_share_pages: number
   min_manual_interval: number
@@ -889,6 +890,7 @@ const userDefaults: UserValues = {
   tg_notify_mode: "all",
   is_admin: false,
   status: true,
+  quota_custom: true,
   max_accounts: 5,
   max_share_pages: 1,
   min_manual_interval: 0,
@@ -911,6 +913,7 @@ export function UserEditor({ row, onSaved }: { row?: Entity; onSaved: () => void
         tg_notify_mode: ["success", "failure", "all"].includes(String(row?.tg_notify_mode)) ? row?.tg_notify_mode as UserValues["tg_notify_mode"] : "all",
         is_admin: Boolean(row?.is_admin),
         status: Boolean(row?.status),
+        quota_custom: row?.quota_custom === undefined ? true : Boolean(row.quota_custom),
         max_accounts: Number(row?.max_accounts ?? 5),
         max_share_pages: Number(row?.max_share_pages ?? 1),
         min_manual_interval: Number(row?.min_manual_interval ?? 0),
@@ -954,19 +957,20 @@ export function UserEditor({ row, onSaved }: { row?: Entity; onSaved: () => void
               label="账号配额"
               type="number"
               value={String(values.max_accounts)}
-              onChange={(max_accounts) => setValues((v) => ({ ...v, max_accounts: Number(max_accounts) }))}
+              onChange={(max_accounts) => setValues((v) => ({ ...v, quota_custom: true, max_accounts: Number(max_accounts) }))}
             />
+            <Toggle label="自定义配额" hint="关闭后跟随关联套餐；修改下方额度会自动开启。重新购买套餐后恢复跟随。" value={values.quota_custom} disabled={!row?.current_plan_id} onChange={quota_custom=>setValues(v=>({...v,quota_custom}))}/>
             <Field
               label="分享配额"
               type="number"
               value={String(values.max_share_pages)}
-              onChange={(max_share_pages) => setValues((v) => ({ ...v, max_share_pages: Number(max_share_pages) }))}
+              onChange={(max_share_pages) => setValues((v) => ({ ...v, quota_custom: true, max_share_pages: Number(max_share_pages) }))}
             />
             <Field
               label="最低手动间隔"
               type="number"
               value={String(values.min_manual_interval)}
-              onChange={(min_manual_interval) => setValues((v) => ({ ...v, min_manual_interval: Number(min_manual_interval) }))}
+              onChange={(min_manual_interval) => setValues((v) => ({ ...v, quota_custom: true, min_manual_interval: Number(min_manual_interval) }))}
             />
             <Field label="账户余额（元，填写调整后的总额）" type="number" value={values.balance} onChange={(balance) => setValues((v) => ({ ...v, balance }))} />
             <Field

@@ -133,6 +133,23 @@ class EntitlementService extends Service
         return ['status' => true, 'msg' => ''];
     }
 
+    public function membership(int $userId): array
+    {
+        $user = Db::name('user')->where('id', $userId)->find();
+        $plan = !empty($user['current_plan_id']) ? Db::name('plan')->where('id', $user['current_plan_id'])->find() : null;
+        $expire = (string)($user['vip_expire_at'] ?? ''); $until = $expire !== '' ? strtotime($expire) : false;
+        $remaining = $until === false ? 0 : max(0, $until - time());
+        $status = $until === false ? 'none' : ($remaining === 0 ? 'expired' : ($remaining <= 7 * 86400 ? 'expiring' : 'active'));
+        $quota = function (string $table, string $field) use ($userId, $user): array {
+            $used = (int)Db::name($table)->where('owner', $userId)->count(); $limit = (int)($user[$field] ?? 0);
+            return ['used' => $used, 'limit' => $limit, 'remaining' => max(0, $limit - $used), 'over_limit' => $used > $limit];
+        };
+        return ['plan_id' => $plan ? (int)$plan['id'] : null, 'plan_name' => $plan['name'] ?? null,
+            'quota_custom' => !empty($user['quota_custom']), 'expires_at' => $expire ?: null,
+            'remaining_days' => (int)ceil($remaining / 86400), 'status' => $status,
+            'renewable' => $plan && !empty($plan['status']), 'accounts' => $quota('account', 'max_accounts'), 'shares' => $quota('share', 'max_share_pages')];
+    }
+
     /** 是否持有未过期的订阅（vip_expire_at 非空且未过期）。 */
     public function hasSubscription(int $userId): bool
     {

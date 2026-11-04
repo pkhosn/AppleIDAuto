@@ -72,7 +72,7 @@ class User extends Model
             if (isset($data['is_admin']) && $user->is_admin != $data['is_admin']) {
                 $update['is_admin'] = $data['is_admin'];
             }
-            foreach (['vip_expire_at', 'max_accounts', 'min_manual_interval', 'max_share_pages', 'balance', 'status'] as $field) {
+            foreach (['quota_custom', 'vip_expire_at', 'max_accounts', 'min_manual_interval', 'max_share_pages', 'balance', 'status'] as $field) {
                 if (array_key_exists($field, $data)) {
                     $update[$field] = $data[$field];
                 }

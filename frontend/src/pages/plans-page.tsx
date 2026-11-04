@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router-dom"
 import { useEffect, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Check, Coins, Crown, Pencil, Plus, Wallet } from "lucide-react"
@@ -19,6 +20,8 @@ import { ErrorState, PageSkeleton } from "@/components/page-state"
 const RECHARGE_PRESETS = [10, 50, 100, 200]
 
 export function PlansPage({ admin = false }: { admin?: boolean }) {
+  const [searchParams,setSearchParams]=useSearchParams()
+  const renewId=searchParams.get("renew")
   const client = useQueryClient()
   const [planPage, setPlanPage] = useState(1)
   const [planPerPage, setPlanPerPage] = usePerPage("plans")
@@ -26,9 +29,16 @@ export function PlansPage({ admin = false }: { admin?: boolean }) {
   const boot = useQuery({ queryKey: ["bootstrap"], queryFn: () => api<BootstrapData>("bootstrap") })
   const [rechargeOpen, setRechargeOpen] = useState(false)
   const [buyPlan, setBuyPlan] = useState<Entity | null>(null)
+  useEffect(()=>{
+    if(admin||!renewId||!query.data)return
+    const plan=query.data.data.find(row=>String(row.id)===renewId)
+    if(plan)setBuyPlan(plan)
+    else toast.error("原套餐已不可购买，请选择其他套餐")
+    setSearchParams({}, {replace:true})
+  },[admin,renewId,query.data,setSearchParams])
   const buy = useMutation({
     mutationFn: ({ planId }: { planId: string | number }) => post(`plans/${planId}/balance-buy`),
-    onSuccess: (r) => { toast.success(r.message); client.invalidateQueries({ queryKey: ["bootstrap"] }) },
+    onSuccess: (r) => { toast.success(r.message); client.invalidateQueries({ queryKey: ["bootstrap"] }); client.invalidateQueries({ queryKey: ["dashboard"] }) },
     onError: (e: Error) => toast.error(e.message),
   })
   if (query.isLoading) return <PageSkeleton />
@@ -43,7 +53,7 @@ export function PlansPage({ admin = false }: { admin?: boolean }) {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <div><h2 className="text-2xl font-semibold">订阅</h2><p className="mt-1 text-sm text-muted-foreground">选择适合当前业务规模的服务配额。</p></div>
+        <div><h2 className="text-2xl font-semibold">购买套餐</h2><p className="mt-1 text-sm text-muted-foreground">选择适合当前业务规模的服务配额。</p></div>
         <Button variant="outline" onClick={() => setRechargeOpen(true)}><Wallet className="size-4" />余额 ￥{balance.toFixed(2)} · 充值</Button>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -98,7 +108,7 @@ function BuyDialog({ plan, onClose }: { plan: Entity | null; onClose: () => void
   return (
     <Dialog open={!!plan} onOpenChange={open => { if (!open) onClose() }}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>确认购买订阅</DialogTitle><DialogDescription>支付成功后套餐配额即时生效，可在订单中查看记录。</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>确认购买套餐</DialogTitle><DialogDescription>支付成功后套餐配额即时生效；未到期时从原到期时间顺延。购买后配额跟随所选套餐，可在订单中查看记录。</DialogDescription></DialogHeader>
         {plan && <div className="space-y-4">
           <div className="flex items-center justify-between rounded-lg border p-3"><span className="text-sm">{String(plan.name ?? "")}</span><span className="font-semibold">￥{price.toFixed(2)}</span></div>
           <div className="space-y-2"><Label>支付方式</Label><div className="flex gap-2">{[["alipay", "支付宝"], ["wxpay", "微信支付"]].map(([v, label]) => <Button key={v} size="sm" variant={payType === v ? "default" : "outline"} onClick={() => setPayType(v)}>{label}</Button>)}</div></div>
@@ -128,7 +138,7 @@ function RechargeDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader><DialogTitle>余额充值</DialogTitle><DialogDescription>选择金额后跳转在线支付，到账后可用于购买订阅。</DialogDescription></DialogHeader>
+        <DialogHeader><DialogTitle>余额充值</DialogTitle><DialogDescription>选择金额后跳转在线支付，到账后可用于购买套餐。</DialogDescription></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2"><Label>快捷金额</Label><div className="flex flex-wrap gap-2">{RECHARGE_PRESETS.map(p => <Button key={p} size="sm" variant={amount === p ? "default" : "outline"} onClick={() => setAmount(p)}>￥{p}</Button>)}</div></div>
           <div className="space-y-2"><Label htmlFor="recharge-amount">自定义金额</Label><Input id="recharge-amount" type="number" min={1} value={String(amount)} onChange={(e) => setAmount(Number(e.target.value))} /></div>

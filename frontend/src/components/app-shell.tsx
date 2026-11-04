@@ -21,7 +21,7 @@ import {
   SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger,
 } from "@/components/ui/sidebar"
 
-const userItems = [["工作台","index",Gauge],["Apple账号","account",Boxes],["自动化任务","task",Workflow],["执行记录","record",FileClock],["分享页","share",Share2],["模板管理","template",LayoutTemplate],["代理网络","proxy",Network],["订阅","plan",Package],["我的订单","order",CreditCard],["兑换码","redeem",KeyRound],["消息推送","notify",BellRing],["个人设置","info",CircleUserRound]] as const
+const userItems = [["工作台","index",Gauge],["Apple账号","account",Boxes],["自动化任务","task",Workflow],["执行记录","record",FileClock],["分享页","share",Share2],["模板管理","template",LayoutTemplate],["代理网络","proxy",Network],["购买套餐","plan",Package],["我的订单","order",CreditCard],["兑换码","redeem",KeyRound],["消息推送","notify",BellRing],["个人设置","info",CircleUserRound]] as const
 const adminItems = [["工作台","index",Gauge],["用户与权限","user",UsersRound],["Apple账号","account",Boxes],["自动化任务","task",Workflow],["执行记录","record",Activity],["分享页","share",Share2],["模板管理","template",LayoutTemplate],["代理网络","proxy",Network],["邮件恢复","mail-recovery",CheckCircle2],["套餐配置","plan",Layers3],["订单中心","order",CreditCard],["兑换码","redeem",KeyRound],["支付配置","payment",CreditCard],["品牌与站点","site",PanelTop],["访问安全","security",ShieldCheck]] as const
 
 export function AppShell({ bootstrap }: { bootstrap: BootstrapData }) {

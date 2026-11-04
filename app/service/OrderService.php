@@ -176,6 +176,7 @@ class OrderService extends Service
             $expire = date('Y-m-d H:i:s', $base + ((int)$plan['days'] * 86400));
             Db::name('user')->where('id', $userId)->update([
                 'vip_expire_at' => $expire,
+                'current_plan_id' => (int)$plan['id'], 'quota_custom' => 0,
                 'max_accounts' => $plan['max_accounts'],
                 'min_manual_interval' => $plan['min_manual_interval'],
                 'max_share_pages' => $plan['enable_share'] ? $plan['max_share_pages'] : 0,

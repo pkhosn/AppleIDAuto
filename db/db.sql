@@ -213,6 +213,8 @@ CREATE TABLE `user` (
   `mailbox_password_cipher` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `mailbox_tls` tinyint(1) NOT NULL DEFAULT '1',
   `vip_expire_at` datetime DEFAULT NULL,
+  `current_plan_id` int unsigned DEFAULT NULL,
+  `quota_custom` tinyint(1) NOT NULL DEFAULT 1,
   `max_accounts` int(10) unsigned NOT NULL DEFAULT '5',
   `min_manual_interval` int(10) unsigned NOT NULL DEFAULT '0',
   `max_share_pages` int(10) unsigned NOT NULL DEFAULT '1',
