@@ -68,6 +68,16 @@ try {
     checkGroup($text==="https://share.example.test/path/share/{$link}",'no password copies URL only');
     $detail=json_decode(groupController(['scope'=>'admin'])->share($sid)->getContent(),true)['data'];
     checkGroup($detail['password_configured']===false,'null password is not configured');
+    checkGroup(groupController(['ids'=>[]])->shareBatchCopy()->getCode()===422,'batch copy requires selection');
+    checkGroup(groupController(['ids'=>[$sid,2147483647]])->shareBatchCopy()->getCode()===403,'batch copy rejects missing entries');
+    $batchCopy=groupController(['ids'=>[$sid,$generated[1]['id'],$sid]] )->shareBatchCopy();
+    $data=json_decode($batchCopy->getContent(),true)['data'];
+    checkGroup($data['count']===2&&str_starts_with($data['text'],"https://share.example.test/path/share/{$link}\n\n分享链接：")&&str_ends_with($data['text'],"\n访问密码：changed"),'batch copy deduplicates, preserves order and includes passwords');
+    checkGroup(($batchCopy->getHeader()['Cache-Control']??'')==='no-store','batch copy response not cached');
+    Db::name('share')->where('id',$sid)->update(['owner'=>$owner+99999]);
+    checkGroup(groupController(['ids'=>[$sid,$generated[1]['id']]])->shareBatchCopy()->getCode()===403,'batch copy rejects entire unauthorized selection');
+    checkGroup(groupController(['scope'=>'admin','ids'=>[$sid,$generated[1]['id']]])->shareBatchCopy()->getCode()===200,'admin scoped batch copy');
+    Db::name('share')->where('id',$sid)->update(['owner'=>$owner]);
     $groupParams=['name'=>'更新后的组','account_list'=>[(int)$account['id']],'password_enabled'=>false];
     checkGroup(groupController($groupParams)->saveShareGroup($group['id'])->getCode()===200,'disable group password');
     checkGroup(Db::name('share')->where('group_id',$group['id'])->whereNotNull('password')->count()===0,'group disabling clears all member passwords');

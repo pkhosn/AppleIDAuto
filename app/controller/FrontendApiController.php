@@ -629,15 +629,35 @@ class FrontendApiController extends BaseController
         $share = Db::name('share')->where('id', (int)$id)->find();
         if (!$share) return $this->fail('分享页面不存在', 404);
         if (!$this->adminScope() && (int)$share['owner'] !== (int)$this->user()['id']) return $this->fail('无权访问', 403);
+        try { $text = $this->shareCopyText($share); }
+        catch (\RuntimeException $e) { return $this->fail($e->getMessage(), 409); }
+        return $this->ok(['text' => $text])->header(['Cache-Control' => 'no-store']);
+    }
+
+    public function shareBatchCopy(): Json
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)$this->request->param('ids', [])), fn($id) => $id > 0)));
+        if (!$ids || count($ids) > 500) return $this->fail('请选择 1 至 500 个分享链接', 422);
+        $query = Db::name('share')->whereIn('id', $ids);
+        if (!$this->adminScope()) $query->where('owner', (int)$this->user()['id']);
+        $rows = $query->select()->toArray();
+        if (count($rows) !== count($ids)) return $this->fail('包含不存在或无权复制的分享链接', 403);
+        $byId = array_column($rows, null, 'id');
+        try { $texts = array_map(fn($id) => $this->shareCopyText($byId[$id]), $ids); }
+        catch (\RuntimeException $e) { return $this->fail($e->getMessage(), 409); }
+        return $this->ok(['text' => implode("\n\n", $texts), 'count' => count($ids)])->header(['Cache-Control' => 'no-store']);
+    }
+
+    private function shareCopyText(array $share): string
+    {
         $password = '';
         if (!empty($share['password'])) {
-            if (empty($share['password_cipher'])) return $this->fail('请重新保存访问密码后再复制', 409);
+            if (empty($share['password_cipher'])) throw new \RuntimeException('分享 ID ' . $share['id'] . ' 请重新保存访问密码后再复制');
             $password = $this->app->credentialCipherService->decrypt((string)$share['password_cipher'], 'share.password');
         }
         $prefix = rtrim(trim((string)($share['base_url'] ?? '')) ?: $this->request->domain(), '/');
         $text = $prefix . '/share/' . rawurlencode((string)$share['share_link']);
-        if ($password !== '') $text = "分享链接：" . $text . "\n访问密码：" . $password;
-        return $this->ok(['text' => $text])->header(['Cache-Control' => 'no-store']);
+        return $password !== '' ? "分享链接：" . $text . "\n访问密码：" . $password : $text;
     }
 
     public function deleteShare($id): Json

@@ -2,6 +2,7 @@ import "@testing-library/jest-dom/vitest"
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import userEvent from "@testing-library/user-event"
 import { ListPage } from "./list-page"
 
 const shareRows = [
@@ -20,6 +21,7 @@ function mockApi() {
     const url = String(input)
     calls.push({ url, method: (init?.method ?? "GET").toUpperCase(), body: typeof init?.body === "string" ? init.body : null })
     if (url.includes("/bootstrap")) return envelope({ authenticated: true, user: { username: "ops", is_admin: false, vip_expire_at: "2035-01-01 00:00:00" } })
+    if (url.includes("shares/batch-copy")) return envelope({text:"https://example.test/share/alpha01\n\n分享链接：https://example.test/share/beta02\n访问密码：fixture",count:2})
     if (url.includes("shares/batch-delete")) return envelope(null, {}, "已删除 2 个分享链接")
     if (url.includes("/share-groups")) return envelope([{id:7,name:"测试组"}])
     if (url.includes("/shares")) {
@@ -85,6 +87,22 @@ describe("shares list", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "全局搜索分享标识、备注或分组" }), { target: { value: "第二组" } })
 
     await waitFor(() => expect(listCalls().some(call => call.url.includes("page=1&per_page=25&keyword=%E7%AC%AC%E4%BA%8C%E7%BB%84"))).toBe(true))
+  })
+
+  it("copies all selected shares with passwords in a single clipboard operation",async()=>{
+    const user=userEvent.setup()
+    const write=vi.spyOn(navigator.clipboard,"writeText").mockResolvedValue()
+    mockApi();renderPage()
+    await screen.findAllByLabelText("选择分享链接")
+    expect(screen.getByRole("button",{name:"批量复制"})).toBeDisabled()
+    fireEvent.click(screen.getByLabelText("全选当前页分享链接"))
+    await user.click(screen.getByRole("button",{name:"批量复制"}))
+    await waitFor(()=>expect(write).toHaveBeenCalledOnce())
+    expect(write).toHaveBeenCalledWith("https://example.test/share/alpha01\n\n分享链接：https://example.test/share/beta02\n访问密码：fixture")
+    const request=calls.find(c=>c.url.includes("shares/batch-copy"))
+    expect(request?.method).toBe("POST")
+    expect(JSON.parse(request?.body??"{}")).toEqual({ids:[1,2]})
+    expect(screen.getByText("已选 2 个")).toBeInTheDocument()
   })
 
   it("closes the batch delete dialog and refreshes the list after confirming", async () => {
