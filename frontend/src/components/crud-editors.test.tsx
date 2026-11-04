@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { AccountCredentials, CopyAccountInfo, SecurityQuestionSelect, DeleteAction, ShareEditor, ShareGroupManager, pageTemplateChoices } from "./crud-editors"
+import { AccountCredentials, CopyAccountInfo, SecurityQuestionSelect, DeleteAction, ShareEditor, ShareGroupManager, CopyShare, pageTemplateChoices } from "./crud-editors"
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -166,6 +166,7 @@ describe("share management save behavior", () => {
     render(<QueryClientProvider client={client}><ShareEditor admin onSaved={onSaved}/></QueryClientProvider>)
     fireEvent.click(screen.getByRole("button",{name:"新建分享"}))
     await screen.findByText("fixture@test.invalid")
+    expect(screen.queryByText("当前用户")).not.toBeInTheDocument()
     expect(screen.getByRole("switch",{name:"访问密码"})).not.toBeChecked()
     expect(screen.queryByLabelText("访问密码内容")).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole("checkbox"))
@@ -198,5 +199,20 @@ describe("share management save behavior", () => {
       await vi.waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
       expect(onSaved).toHaveBeenCalledOnce()
     }
+  })
+})
+
+
+describe("CopyShare",()=>{
+  it.each(["https://example.test/share/fixture","分享链接：https://example.test/share/fixture\n访问密码：FixturePass"])("copies the server-generated share text: %s",async(text)=>{
+    const user=userEvent.setup()
+    const write=vi.spyOn(navigator.clipboard,"writeText").mockResolvedValue()
+    const fetch=vi.spyOn(globalThis,"fetch").mockResolvedValue(new Response(JSON.stringify({success:true,data:{text}}),{headers:{"Content-Type":"application/json"}}))
+    const client=new QueryClient()
+    render(<QueryClientProvider client={client}><CopyShare id={7} admin/></QueryClientProvider>)
+    await user.click(screen.getByRole("button",{name:"复制分享"}))
+    await vi.waitFor(()=>expect(write).toHaveBeenCalledWith(text))
+    expect(String(fetch.mock.calls[0][0])).toContain("shares/7/copy?scope=admin")
+    expect(fetch.mock.calls[0][1]?.method).toBe("POST")
   })
 })

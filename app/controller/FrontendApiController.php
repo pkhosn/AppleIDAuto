@@ -459,7 +459,7 @@ class FrontendApiController extends BaseController
         foreach ($rows as &$row) {
             $row['account_list'] = array_values(array_filter(array_map('intval', explode(',', (string)$row['account_list']))));
             $row['password_configured'] = (string)($row['password'] ?? '') !== '';
-            unset($row['password']);
+            unset($row['password'], $row['password_cipher']);
         }
         return $this->ok($rows, '获取成功');
     }
@@ -486,10 +486,11 @@ class FrontendApiController extends BaseController
             if (!(bool)$this->request->param('password_enabled')) $password = '';
             elseif ($password === '') return $this->fail('开启访问密码后请输入密码', 422);
         }
+        $passwordCipher = $this->sharePasswordCipher($password, (string)($existing['password_cipher'] ?? ''));
         $duration = max(0, min(525600, (int)$this->request->param('duration_minutes', 0)));
         $expire = $duration > 0 ? null : ($this->request->param('expire') ?: null);
         $data = ['owner' => $owner, 'name' => $name, 'template_id' => $templateId ?: null,
-            'account_list' => implode(',', $accountIds), 'password' => $password ?: null,
+            'account_list' => implode(',', $accountIds), 'password' => $password ?: null, 'password_cipher' => $passwordCipher,
             'duration_minutes' => $duration, 'expire' => $expire,
             'base_url' => trim((string)$this->request->param('base_url', '')) ?: null,
             'access_tracking' => (int)(bool)$this->request->param('access_tracking', true),
@@ -497,7 +498,7 @@ class FrontendApiController extends BaseController
         Db::transaction(function () use ($id, $data, $template, $existing): void {
             if ($id) Db::name('share_group')->where('id', $id)->update($data);
             else { $data['create_time'] = date('Y-m-d H:i:s'); $id = Db::name('share_group')->insertGetId($data); }
-            $shareData = ['account_list' => $data['account_list'], 'password' => $data['password'], 'duration_minutes' => $data['duration_minutes'],
+            $shareData = ['account_list' => $data['account_list'], 'password' => $data['password'], 'password_cipher' => $data['password_cipher'], 'duration_minutes' => $data['duration_minutes'],
                 'base_url' => $data['base_url'], 'access_tracking' => $data['access_tracking'], 'template_id' => $data['template_id']];
             $timingChanged = !$existing || (int)$existing['duration_minutes'] !== (int)$data['duration_minutes']
                 || (string)($existing['expire'] ?? '') !== (string)($data['expire'] ?? '');
@@ -520,7 +521,7 @@ class FrontendApiController extends BaseController
     private function safeShare(array $row): array
     {
         $row['password_configured'] = (string)($row['password'] ?? '') !== '';
-        unset($row['password'], $row['html']);
+        unset($row['password'], $row['password_cipher'], $row['html']);
         $row['group_name'] = !empty($row['group_id']) ? (string)(Db::name('share_group')->where('id', (int)$row['group_id'])->value('name') ?? '未分组') : '未分组';
         $row['remark'] = (string)($row['remark'] ?? '');
         $row['account_count'] = count(array_values(array_filter(array_map('intval', explode(',', (string)($row['account_list'] ?? ''))))));
@@ -552,7 +553,7 @@ class FrontendApiController extends BaseController
     {
         $share = (new SharePage())->fetch((int)$id); if (!$share) return $this->fail('分享页面不存在', 404);
         if (!$this->adminScope() && (int)$share->owner !== (int)$this->user()['id']) return $this->fail('无权访问', 403);
-        $data = $share->toArray(); $data['password_configured'] = (string)($data['password'] ?? '') !== ''; unset($data['password'], $data['html']);
+        $data = $share->toArray(); $data['password_configured'] = (string)($data['password'] ?? '') !== ''; unset($data['password'], $data['password_cipher'], $data['html']);
         return $this->ok($data);
     }
 
@@ -577,6 +578,7 @@ class FrontendApiController extends BaseController
             if (!(bool)$this->request->param('password_enabled')) $password = '';
             elseif ($password === '') return $this->fail('开启访问密码后请输入密码', 422);
         }
+        $passwordCipher = $this->sharePasswordCipher($password, $existing ? (string)($existing->password_cipher ?? '') : '');
         $shareLink = (string)$this->request->param('share_link', '');
         if ($shareLink === '') $shareLink = $existing ? (string)$existing->share_link : secure_token(16);
         $htmlInput = (string)$this->request->param('html', '');
@@ -589,7 +591,7 @@ class FrontendApiController extends BaseController
         if ($groupId && !$group) return $this->fail('分享组不存在或不属于当前用户', 422);
         if ($group) {
             $accountIds = array_values(array_filter(array_map('intval', explode(',', (string)$group['account_list']))));
-            $password = (string)($group['password'] ?? ''); $templateId = (int)($group['template_id'] ?? 0);
+            $password = (string)($group['password'] ?? ''); $passwordCipher = $group['password_cipher'] ?? null; $templateId = (int)($group['template_id'] ?? 0);
             $groupTemplate = $templateId ? $this->ownedTemplate($templateId, $owner) : null;
             if ($templateId && !$groupTemplate) return $this->fail('分享组关联的模板已不可用', 422);
             $html = $groupTemplate ? (string)$groupTemplate['html'] : $html;
@@ -602,7 +604,7 @@ class FrontendApiController extends BaseController
         $data = ['share_link' => $shareLink,
             'embed_enabled' => (int)(bool)$this->request->param('embed_enabled', $existing ? $existing->embed_enabled : false),
             'embed_origins' => (string)$this->request->param('embed_origins', $existing ? $existing->embed_origins : ''),
-            'account_list' => implode(',', $accountIds), 'password' => $password === '' ? null : $password, 'owner' => $owner,
+            'account_list' => implode(',', $accountIds), 'password' => $password === '' ? null : $password, 'password_cipher' => $passwordCipher, 'owner' => $owner,
             'html' => $html,
             'notice_html' => $noticeHtml,
             'group_id' => $groupId ?: null, 'template_id' => $templateId ?: null,
@@ -613,6 +615,29 @@ class FrontendApiController extends BaseController
         try { $result = $id ? $model->updateSharePage($id, $data) : $model->addSharePage($data, !$admin); }
         catch (\InvalidArgumentException $e) { return $this->fail($e->getMessage()); }
         return $result['status'] ? $this->ok(['share_link' => $shareLink, 'url' => $this->request->domain() . '/share/' . $shareLink], $result['msg']) : $this->fail($result['msg'], 409);
+    }
+
+    private function sharePasswordCipher(string $hash, string $existing): ?string
+    {
+        if ($hash === '') return null;
+        $submitted = (string)$this->request->param('password', '');
+        return $submitted !== '' ? $this->app->credentialCipherService->encrypt($submitted, 'share.password') : ($existing ?: null);
+    }
+
+    public function copyShare($id): Json
+    {
+        $share = Db::name('share')->where('id', (int)$id)->find();
+        if (!$share) return $this->fail('分享页面不存在', 404);
+        if (!$this->adminScope() && (int)$share['owner'] !== (int)$this->user()['id']) return $this->fail('无权访问', 403);
+        $password = '';
+        if (!empty($share['password'])) {
+            if (empty($share['password_cipher'])) return $this->fail('请重新保存访问密码后再复制', 409);
+            $password = $this->app->credentialCipherService->decrypt((string)$share['password_cipher'], 'share.password');
+        }
+        $prefix = rtrim(trim((string)($share['base_url'] ?? '')) ?: $this->request->domain(), '/');
+        $text = $prefix . '/share/' . rawurlencode((string)$share['share_link']);
+        if ($password !== '') $text = "分享链接：" . $text . "\n访问密码：" . $password;
+        return $this->ok(['text' => $text])->header(['Cache-Control' => 'no-store']);
     }
 
     public function deleteShare($id): Json
@@ -653,7 +678,7 @@ class FrontendApiController extends BaseController
                 $template = $templateId ? $this->ownedTemplate($templateId, $owner) : null;
                 if ($templateId && !$template) throw new \RuntimeException('分享组关联的模板已不可用');
                 $linkDefaults = ['group_id' => $groupId, 'template_id' => $templateId ?: null,
-                    'password' => $group['password'] ?: null, 'access_tracking' => (int)$group['access_tracking'],
+                    'password' => $group['password'] ?: null, 'password_cipher' => $group['password_cipher'] ?? null, 'access_tracking' => (int)$group['access_tracking'],
                     'html' => $template ? (string)$template['html'] : $this->defaultShareHtml($owner),
                     'notice_html' => $template ? (string)$template['notice_html'] : $this->defaultShareNotice($owner)];
             }

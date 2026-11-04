@@ -63,6 +63,7 @@ Route::group('frontend-api/v1', function () {
     Route::post('share-groups/:id', 'frontendApi/saveShareGroup')->completeMatch();
     Route::post('share-groups', 'frontendApi/saveShareGroup')->completeMatch();
     Route::delete('share-groups/:id', 'frontendApi/deleteShareGroup');
+    Route::post('shares/:id/copy', 'frontendApi/copyShare')->completeMatch();
     Route::get('shares/:id', 'frontendApi/share');
     Route::get('shares', 'frontendApi/shares');
     Route::post('shares/:id', 'frontendApi/saveShare');

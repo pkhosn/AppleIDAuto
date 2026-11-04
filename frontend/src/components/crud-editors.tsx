@@ -567,6 +567,18 @@ const shareDefaults: ShareValues = {
   template_id: 0,
 }
 
+export function CopyShare({id,admin}:{id:string|number;admin:boolean}) {
+  const copy=useMutation({
+    mutationFn:async()=>{
+      const response=await post<{text:string}>(withScope(`shares/${id}/copy`,admin),{})
+      await navigator.clipboard.writeText(response.data.text)
+    },
+    onSuccess:()=>toast.success("分享信息已复制"),
+    onError:(e:Error)=>toast.error(e.message),
+  })
+  return <Button size="sm" variant="ghost" disabled={copy.isPending} onClick={()=>copy.mutate()}><Copy/>复制分享</Button>
+}
+
 function shareUrl(link: string) {
   return `${window.location.origin}/share/${link}`
 }
@@ -593,7 +605,6 @@ export function ShareEditor({ row, admin, onSaved }: { row?: Entity; admin: bool
   const [open, setOpen] = useState(false)
   const [values, setValues] = useState(shareDefaults)
   const [created, setCreated] = useState<{ share_link: string; url: string } | null>(null)
-  const boot = useQuery({ queryKey: ["bootstrap"], queryFn: () => api<BootstrapData>("bootstrap"), enabled: open })
   const groups = useQuery({ queryKey: ["share-groups-current"], queryFn: () => api<Entity[]>("share-groups"), enabled: open })
   const templates = useQuery({ queryKey: ["templates"], queryFn: () => api<Entity[]>("templates"), enabled: open })
   const pageTemplates = pageTemplateChoices(templates.data?.data ?? [])
@@ -656,14 +667,13 @@ export function ShareEditor({ row, admin, onSaved }: { row?: Entity; admin: bool
             <DialogTitle>{row ? "编辑分享页" : "新建分享页"}</DialogTitle>
             <DialogDescription>公开地址为 /share/分享代码；分享代码留空将自动生成，访问密码默认关闭，可按需开启。</DialogDescription>
           </DialogHeader>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid items-start gap-4 sm:grid-cols-2">
             <Field
               label="分享代码"
               value={values.share_link}
               onChange={(share_link) => setValues((v) => ({ ...v, share_link }))}
               placeholder="留空自动生成"
             />
-            {values.group_id > 0 ? <p className="text-sm text-muted-foreground">访问密码由所属分享组控制</p> : <SharePassword enabled={values.password_enabled} configured={values.password_configured} password={values.password} onToggle={password_enabled=>setValues(v=>({...v,password_enabled,password:""}))} onChange={password=>setValues(v=>({...v,password}))} />}
             <Field label="备注" value={values.remark} onChange={(remark) => setValues((v) => ({ ...v, remark }))} />
             <Field
               label="首次访问后有效分钟数"
@@ -671,9 +681,9 @@ export function ShareEditor({ row, admin, onSaved }: { row?: Entity; admin: bool
               value={String(values.duration_minutes)}
               onChange={(duration_minutes) => setValues((v) => ({ ...v, duration_minutes: Number(duration_minutes) }))}
             />
-            <div className="space-y-2"><Label>当前用户</Label><Input value={String(boot.data?.data.user?.username ?? "加载中…")} readOnly /></div>
             <div className="space-y-2"><Label>所属分享组</Label><select className="h-8 w-full rounded-lg border bg-background px-2.5 text-sm" value={values.group_id} onChange={e=>setValues(v=>({...v,group_id:Number(e.target.value)}))}><option value={0}>不加入组</option>{(groups.data?.data??[]).map(group=><option key={String(group.id)} value={Number(group.id)}>{String(group.name)}</option>)}</select></div>
-            <div className="space-y-2"><Label>页面模板</Label><select className="h-8 w-full rounded-lg border bg-background px-2.5 text-sm" value={values.template_id} disabled={values.group_id>0} onChange={e=>setValues(v=>({...v,template_id:Number(e.target.value)}))}><option value={0}>使用默认模板</option>{hasOpaqueTemplate&&<option value={values.template_id}>保持当前私有模板</option>}{pageTemplates.options.map(option=><option key={String(option.value)} value={option.value}>{option.label}</option>)}</select></div>
+            <div className="space-y-2 sm:col-span-2"><Label>页面模板</Label><select className="h-8 w-full rounded-lg border bg-background px-2.5 text-sm" value={values.template_id} disabled={values.group_id>0} onChange={e=>setValues(v=>({...v,template_id:Number(e.target.value)}))}><option value={0}>使用默认模板</option>{hasOpaqueTemplate&&<option value={values.template_id}>保持当前私有模板</option>}{pageTemplates.options.map(option=><option key={String(option.value)} value={option.value}>{option.label}</option>)}</select></div>
+            {values.group_id > 0 ? <p className="rounded-lg border p-3 text-sm text-muted-foreground sm:col-span-2">访问密码由所属分享组控制</p> : <SharePassword enabled={values.password_enabled} configured={values.password_configured} password={values.password} onToggle={password_enabled=>setValues(v=>({...v,password_enabled,password:""}))} onChange={password=>setValues(v=>({...v,password}))} />}
             {values.group_id>0&&<p className="text-xs text-muted-foreground sm:col-span-2">账号、密码、有效期和模板由所属分享组统一控制；编辑组后，所有所属链接会同步更新。</p>}
             <Toggle
               label="记录首次访问"
@@ -832,7 +842,7 @@ export function BatchShareEditor({ admin, onSaved }: { admin: boolean; onSaved: 
 }
 
 function SharePassword({enabled,configured,password,onToggle,onChange}:{enabled:boolean;configured:boolean;password:string;onToggle:(enabled:boolean)=>void;onChange:(password:string)=>void}) {
-  return <div className="space-y-2"><Toggle label="访问密码" value={enabled} onChange={onToggle}/>{enabled&&<><Field label="访问密码内容" type="password" value={password} onChange={onChange} placeholder={configured?"留空保持原密码":"请输入访问密码"}/><p className="text-xs text-muted-foreground">{configured?"留空保留原密码；关闭并保存将移除密码。":"开启后必须输入密码。"}</p></>}</div>
+  return <div className="space-y-3 rounded-lg border p-3 sm:col-span-2"><div className="flex items-center justify-between gap-3"><Label>访问密码</Label><Switch aria-label="访问密码" checked={enabled} onCheckedChange={onToggle}/></div>{enabled&&<><Field label="访问密码内容" type="password" value={password} onChange={onChange} placeholder={configured?"留空保持原密码":"请输入访问密码"}/><p className="text-xs text-muted-foreground">{configured?"留空保留原密码；关闭并保存将移除密码。":"开启后必须输入密码。"}</p></>}</div>
 }
 
 type GroupValues={name:string;template_id:number;account_list:number[];password:string;password_enabled:boolean;duration_minutes:number;expire:string;base_url:string;access_tracking:boolean}
@@ -853,7 +863,7 @@ export function ShareGroupManager({admin,onSaved}:{admin:boolean;onSaved:()=>voi
   const save=useMutation({mutationFn:()=>post(withScope(`share-groups${editing?.id?`/${editing.id}`:""}`,admin),{...values,expire:values.expire.replace("T"," ")||undefined}),onSuccess:r=>{toast.success(r.message);setOpen(false);edit();refreshGroups();onSaved()},onError:(e:Error)=>toast.error(e.message)})
   const remove=useMutation({mutationFn:(id:string|number)=>api(withScope(`share-groups/${id}`,admin),{method:"DELETE"}),onSuccess:r=>{toast.success(r.message);refreshGroups();onSaved()},onError:(e:Error)=>toast.error(e.message)})
   const toggle=(id:number,checked:boolean)=>setValues(v=>({...v,account_list:checked?[...new Set([...v.account_list,id])]:v.account_list.filter(x=>x!==id)}))
-  return <><Button size="sm" variant="outline" onClick={()=>{setOpen(true);edit()}}><Plus/>分享组</Button><Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>分享组管理</DialogTitle><DialogDescription>链接加入组后，编辑组的账号、密码、有效期或模板会同步到组内全部链接。</DialogDescription></DialogHeader><div className="grid gap-5 md:grid-cols-[.8fr_1.2fr]"><div className="space-y-2"><Button className="w-full" variant={!editing?"secondary":"outline"} onClick={()=>edit()}>新建分享组</Button>{(groups.data?.data??[]).map(group=><div key={String(group.id)} className="flex items-center justify-between rounded-lg border p-3"><button className="min-w-0 text-left" onClick={()=>edit(group)}><p className="truncate text-sm font-medium">{String(group.name)}</p><p className="text-xs text-muted-foreground">{String(group.template_name??"默认模板")} · {Number(group.link_count??0)} 条链接</p></button><Button size="sm" variant="ghost" onClick={()=>edit(group)}><Pencil/>编辑</Button><DeleteAction title="删除分享组？" description="组内分享链接会保留并解除分组。" onConfirm={()=>remove.mutate(group.id!)}/></div>)}</div><div className="grid gap-3 sm:grid-cols-2"><Field label="组名称" value={values.name} onChange={name=>setValues(v=>({...v,name}))}/><div className="space-y-2"><Label>关联模板</Label><select className="h-8 w-full rounded-lg border bg-background px-2.5 text-sm" value={values.template_id} onChange={e=>setValues(v=>({...v,template_id:Number(e.target.value)}))}><option value={0}>使用默认模板</option>{hasOpaqueTemplate&&<option value={values.template_id}>保持当前私有模板</option>}{pageTemplates.options.map(option=><option key={String(option.value)} value={option.value}>{option.label}</option>)}</select></div><SharePassword enabled={values.password_enabled} configured={Boolean(editing?.password_configured)} password={values.password} onToggle={password_enabled=>setValues(v=>({...v,password_enabled,password:""}))} onChange={password=>setValues(v=>({...v,password}))}/><Field label="首次访问后有效分钟数" type="number" value={String(values.duration_minutes)} onChange={duration_minutes=>setValues(v=>({...v,duration_minutes:Number(duration_minutes)}))}/><Field label="固定到期时间（可选）" type="datetime-local" value={values.expire} onChange={expire=>setValues(v=>({...v,expire}))}/><Field label="分享网址（可选）" value={values.base_url} onChange={base_url=>setValues(v=>({...v,base_url}))}/><Toggle label="记录首次访问" value={values.access_tracking} onChange={access_tracking=>setValues(v=>({...v,access_tracking}))}/><div className="space-y-2 sm:col-span-2"><Label>组内账号</Label><div className="max-h-44 space-y-2 overflow-y-auto rounded-lg border p-3">{(accounts.data?.data??[]).map(a=><label key={String(a.id)} className="flex items-center gap-2 text-sm"><Checkbox checked={values.account_list.includes(Number(a.id))} onCheckedChange={checked=>toggle(Number(a.id),Boolean(checked))}/>{String(a.username??a.id)}</label>)}</div></div><Button className="sm:col-span-2" disabled={save.isPending||!values.name||!values.account_list.length||(values.password_enabled&&!editing?.password_configured&&!values.password)} onClick={()=>save.mutate()}>{editing?"保存并同步组内链接":"创建分享组"}</Button></div></div></DialogContent></Dialog></>
+  return <><Button size="sm" variant="outline" onClick={()=>{setOpen(true);edit()}}><Plus/>分享组</Button><Dialog open={open} onOpenChange={setOpen}><DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-3xl"><DialogHeader><DialogTitle>分享组管理</DialogTitle><DialogDescription>链接加入组后，编辑组的账号、密码、有效期或模板会同步到组内全部链接。</DialogDescription></DialogHeader><div className="grid gap-5 md:grid-cols-[.8fr_1.2fr]"><div className="space-y-2"><Button className="w-full" variant={!editing?"secondary":"outline"} onClick={()=>edit()}>新建分享组</Button>{(groups.data?.data??[]).map(group=><div key={String(group.id)} className="flex items-center justify-between rounded-lg border p-3"><button className="min-w-0 text-left" onClick={()=>edit(group)}><p className="truncate text-sm font-medium">{String(group.name)}</p><p className="text-xs text-muted-foreground">{String(group.template_name??"默认模板")} · {Number(group.link_count??0)} 条链接</p></button><Button size="sm" variant="ghost" onClick={()=>edit(group)}><Pencil/>编辑</Button><DeleteAction title="删除分享组？" description="组内分享链接会保留并解除分组。" onConfirm={()=>remove.mutate(group.id!)}/></div>)}</div><div className="grid items-start gap-3 sm:grid-cols-2"><Field label="组名称" value={values.name} onChange={name=>setValues(v=>({...v,name}))}/><div className="space-y-2"><Label>关联模板</Label><select className="h-8 w-full rounded-lg border bg-background px-2.5 text-sm" value={values.template_id} onChange={e=>setValues(v=>({...v,template_id:Number(e.target.value)}))}><option value={0}>使用默认模板</option>{hasOpaqueTemplate&&<option value={values.template_id}>保持当前私有模板</option>}{pageTemplates.options.map(option=><option key={String(option.value)} value={option.value}>{option.label}</option>)}</select></div><Field label="首次访问后有效分钟数" type="number" value={String(values.duration_minutes)} onChange={duration_minutes=>setValues(v=>({...v,duration_minutes:Number(duration_minutes)}))}/><Field label="固定到期时间（可选）" type="datetime-local" value={values.expire} onChange={expire=>setValues(v=>({...v,expire}))}/><div className="sm:col-span-2"><Field label="分享网址（可选）" value={values.base_url} onChange={base_url=>setValues(v=>({...v,base_url}))}/></div><SharePassword enabled={values.password_enabled} configured={Boolean(editing?.password_configured)} password={values.password} onToggle={password_enabled=>setValues(v=>({...v,password_enabled,password:""}))} onChange={password=>setValues(v=>({...v,password}))}/><Toggle label="记录首次访问" value={values.access_tracking} onChange={access_tracking=>setValues(v=>({...v,access_tracking}))}/><div className="space-y-2 sm:col-span-2"><Label>组内账号</Label><div className="max-h-44 space-y-2 overflow-y-auto rounded-lg border p-3">{(accounts.data?.data??[]).map(a=><label key={String(a.id)} className="flex items-center gap-2 text-sm"><Checkbox checked={values.account_list.includes(Number(a.id))} onCheckedChange={checked=>toggle(Number(a.id),Boolean(checked))}/>{String(a.username??a.id)}</label>)}</div></div><Button className="sm:col-span-2" disabled={save.isPending||!values.name||!values.account_list.length||(values.password_enabled&&!editing?.password_configured&&!values.password)} onClick={()=>save.mutate()}>{editing?"保存并同步组内链接":"创建分享组"}</Button></div></div></DialogContent></Dialog></>
 }
 
 type UserValues = {

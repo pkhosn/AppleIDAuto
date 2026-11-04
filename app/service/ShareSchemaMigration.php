@@ -20,6 +20,10 @@ final class ShareSchemaMigration
             create_time DATETIME NULL, update_time DATETIME NULL,
             KEY idx_share_group_owner(owner), KEY idx_share_group_template(template_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        foreach (['share', 'share_group'] as $table) {
+            $fields = array_column($pdo->query("SHOW COLUMNS FROM {$table}")->fetchAll(PDO::FETCH_ASSOC), 'Field');
+            if (!in_array('password_cipher', $fields, true)) $pdo->exec("ALTER TABLE {$table} ADD COLUMN password_cipher TEXT NULL");
+        }
         $columns = array_column($pdo->query('SHOW COLUMNS FROM share')->fetchAll(PDO::FETCH_ASSOC), 'Field');
         foreach (['embed_enabled' => 'TINYINT(1) NOT NULL DEFAULT 0', 'embed_origins' => 'TEXT NULL'] as $column => $type) {
             if (!in_array($column, $columns, true)) {
