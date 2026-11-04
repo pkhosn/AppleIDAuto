@@ -21,7 +21,7 @@ function mockApi() {
     const url = String(input)
     calls.push({ url, method: (init?.method ?? "GET").toUpperCase(), body: typeof init?.body === "string" ? init.body : null })
     if (url.includes("/bootstrap")) return envelope({ authenticated: true, user: { username: "ops", is_admin: false, vip_expire_at: "2035-01-01 00:00:00" } })
-    if (url.includes("shares/batch-copy")) return envelope({text:"https://example.test/share/alpha01  分享链接：https://example.test/share/beta02 访问密码：fixture",count:2})
+    if (url.includes("shares/batch-copy")) return envelope({text:"https://example.test/share/alpha01\n分享链接：https://example.test/share/beta02 访问密码：fixture",count:2})
     if (url.includes("shares/batch-delete")) return envelope(null, {}, "已删除 2 个分享链接")
     if (url.includes("/share-groups")) return envelope([{id:7,name:"测试组"}])
     if (url.includes("/shares")) {
@@ -98,7 +98,7 @@ describe("shares list", () => {
     fireEvent.click(screen.getByLabelText("全选当前页分享链接"))
     await user.click(screen.getByRole("button",{name:"批量复制"}))
     await waitFor(()=>expect(write).toHaveBeenCalledOnce())
-    expect(write).toHaveBeenCalledWith("https://example.test/share/alpha01  分享链接：https://example.test/share/beta02 访问密码：fixture")
+    expect(write).toHaveBeenCalledWith("https://example.test/share/alpha01\n分享链接：https://example.test/share/beta02 访问密码：fixture")
     const request=calls.find(c=>c.url.includes("shares/batch-copy"))
     expect(request?.method).toBe("POST")
     expect(JSON.parse(request?.body??"{}")).toEqual({ids:[1,2]})

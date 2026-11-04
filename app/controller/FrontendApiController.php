@@ -646,7 +646,7 @@ class FrontendApiController extends BaseController
         $byId = array_column($rows, null, 'id');
         try { $texts = array_map(fn($id) => $this->shareCopyText($byId[$id]), $ids); }
         catch (\RuntimeException $e) { return $this->fail($e->getMessage(), 409); }
-        return $this->ok(['text' => implode("  ", $texts), 'count' => count($ids)])->header(['Cache-Control' => 'no-store']);
+        return $this->ok(['text' => implode("\n", $texts), 'count' => count($ids)])->header(['Cache-Control' => 'no-store']);
     }
 
     private function shareCopyText(array $share): string

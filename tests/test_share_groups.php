@@ -72,8 +72,8 @@ try {
     checkGroup(groupController(['ids'=>[$sid,2147483647]])->shareBatchCopy()->getCode()===403,'batch copy rejects missing entries');
     $batchCopy=groupController(['ids'=>[$sid,$generated[1]['id'],$sid]] )->shareBatchCopy();
     $data=json_decode($batchCopy->getContent(),true)['data'];
-    checkGroup($data['count']===2&&str_starts_with($data['text'],"https://share.example.test/path/share/{$link}  分享链接：")&&str_ends_with($data['text']," 访问密码：changed"),'batch copy deduplicates, preserves order and includes passwords');
-    checkGroup(!str_contains($data['text'], "\n")&&!str_contains($data['text'], "\r"),'copy is a single line');
+    checkGroup($data['count']===2&&str_starts_with($data['text'],"https://share.example.test/path/share/{$link}\n分享链接：")&&str_ends_with($data['text']," 访问密码：changed"),'batch copy deduplicates, preserves order and includes passwords');
+    checkGroup(substr_count($data['text'], "\n")===1&&!str_contains($data['text'], "\r"),'batch copy uses one line per share');
     checkGroup(($batchCopy->getHeader()['Cache-Control']??'')==='no-store','batch copy response not cached');
     Db::name('share')->where('id',$sid)->update(['owner'=>$owner+99999]);
     checkGroup(groupController(['ids'=>[$sid,$generated[1]['id']]])->shareBatchCopy()->getCode()===403,'batch copy rejects entire unauthorized selection');
