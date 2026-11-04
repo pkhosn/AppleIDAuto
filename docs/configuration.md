@@ -123,3 +123,23 @@ add_header X-Frame-Options $share_frame_options always;
 ```
 
 可选 HTTP 回归使用隔离 fixture 服务（禁止指向生产）：`EMBED_TEST_URL=http://127.0.0.1:18941 php tests/test_share_embed.php`。该测试需要 openframe（开放）、restricted（来源 http://embed-parent-allowed）、protected（密码 gate-secret）、disabled（关闭）、expired（过期）五条虚构分享，共享虚构账号 fixture@example.invalid / FixturePass1!；missing 必须不存在。测试检查密码门禁、POST 校验、重新载入、过期、关闭及响应头。测试数据不得使用真实账号。
+
+### 分享管理筛选与访问密码
+
+分享列表默认显示“未分组”，可切换“全部分享”或指定分享组。分组筛选与全局搜索共同作用于服务端分页，切换分组会回到第一页并清除已选项。分享组管理中可直接点击删除按钮旁的“编辑”。
+
+新建分享及分享组的访问密码默认关闭；开启后必须填写密码。编辑已设置密码的项目时，开启状态下留空保留原密码，关闭并保存会移除密码。组内链接使用所属分享组的密码，修改组设置会同步到所有组内链接。未传 `password_enabled` 的旧 API 请求保留原有“密码留空保持原值”的行为。
+
+单条分享和分享组保存成功后关闭弹窗并刷新列表；保存失败保留输入。批量生成成功保留结果窗口，方便复制链接。
+
+本地回归验证（仓库根目录，使用现有部署的 PHP 容器）：
+
+```bash
+docker exec appleidauto-new-php-1 php tests/test_share_groups.php
+docker exec appleidauto-new-php-1 php tests/test_template_isolation.php
+docker exec appleidauto-new-php-1 php tests/test_schedule_config.php
+docker run --rm --memory=1024m -v "$PWD:/srv/app" -w /srv/app/frontend node:22-alpine npm test -- --maxWorkers=1
+docker run --rm --memory=1024m -v "$PWD:/srv/app" -w /srv/app/frontend node:22-alpine npm run build:production
+```
+
+PHP 用例在事务中验证分享密码和筛选，执行后回滚，不触发 Apple 自动化任务。

@@ -34,6 +34,33 @@ try {
     checkGroup($template->getCode()===200,'template updated');
     $share=Db::name('share')->where('id',$shareId)->find(); checkGroup($share['html']==='<p>after</p>'&&$share['notice_html']==='<p>notice after</p>','template propagated');
     $list=json_decode(groupController()->shareGroups()->getContent(),true); checkGroup(($list['success']??false)===true,'groups listed');
+    $params=['scope'=>'admin','account_list'=>[(int)$account['id']],'password_enabled'=>true];
+    checkGroup(groupController($params)->saveShare()->getCode()===422,'enabled password requires content');
+    $link='test'.bin2hex(random_bytes(5));
+    checkGroup(groupController($params+['share_link'=>$link,'password'=>'secret'])->saveShare()->getCode()===200,'protected share created');
+    $standalone=Db::name('share')->where('share_link',$link)->find(); $sid=(int)$standalone['id'];
+    checkGroup(groupController($params)->saveShare($sid)->getCode()===200,'blank enabled password preserves existing');
+    checkGroup(password_verify('secret',(string)Db::name('share')->where('id',$sid)->value('password')),'existing password preserved');
+    $detail=json_decode(groupController(['scope'=>'admin'])->share($sid)->getContent(),true)['data'];
+    checkGroup($detail['password_configured']===true&&!array_key_exists('password',$detail),'detail reports password without exposing hash');
+    $params['password_enabled']=false;
+    checkGroup(groupController($params)->saveShare($sid)->getCode()===200,'password switch disabled');
+    checkGroup(!Db::name('share')->where('id',$sid)->value('password'),'disabled clears existing password');
+    $detail=json_decode(groupController(['scope'=>'admin'])->share($sid)->getContent(),true)['data'];
+    checkGroup($detail['password_configured']===false,'null password is not configured');
+    $groupParams=['name'=>'更新后的组','account_list'=>[(int)$account['id']],'password_enabled'=>false];
+    checkGroup(groupController($groupParams)->saveShareGroup($group['id'])->getCode()===200,'disable group password');
+    checkGroup(Db::name('share')->where('group_id',$group['id'])->whereNotNull('password')->count()===0,'group disabling clears all member passwords');
+    $groupParams['password_enabled']=true;
+    checkGroup(groupController($groupParams)->saveShareGroup($group['id'])->getCode()===422,'group enabling requires password');
+    foreach (['0','all',(string)$group['id']] as $filter) {
+        $response=json_decode(groupController(['group_id'=>$filter,'keyword'=>$filter==='0'?$link:'','per_page'=>100])->shares()->getContent(),true);
+        checkGroup(($response['success']??false)===true,'filtered list succeeds');
+        $rows=$response['data'];
+        if ($filter==='0') checkGroup(count($rows)===1&&(int)$rows[0]['id']===$sid,'ungrouped combines with keyword');
+        elseif ($filter!=='all') checkGroup(count($rows)===3&&array_reduce($rows,fn($ok,$r)=>$ok&&(int)$r['group_id']===(int)$group['id'],true),'specific group filter');
+        else checkGroup(in_array($sid,array_column($rows,'id'))&&in_array($shareId,array_column($rows,'id')),'all includes grouped and ungrouped');
+    }
 } catch(Throwable $e) { $failed=true; fwrite(STDERR,$e->getMessage()."\n"); }
 Db::rollback(); Session::delete('user_id');
 if($failed) exit(1); echo "{$checks} share group checks passed\n";

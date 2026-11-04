@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
-import { AccountCredentials, CopyAccountInfo, SecurityQuestionSelect, DeleteAction, ShareEditor, pageTemplateChoices } from "./crud-editors"
+import { AccountCredentials, CopyAccountInfo, SecurityQuestionSelect, DeleteAction, ShareEditor, ShareGroupManager, pageTemplateChoices } from "./crud-editors"
 
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
@@ -140,5 +140,63 @@ describe("ShareEditor embedding", () => {
     fireEvent.click(screen.getByRole("button", { name: "保存分享" }))
     await vi.waitFor(() => expect(saved).toMatchObject({ embed_enabled: true, embed_origins: "" }))
     await vi.waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+  })
+})
+
+
+describe("share management save behavior", () => {
+  function mockShareApi(fail=false) {
+    const saved: Record<string,unknown>[]=[]
+    vi.spyOn(globalThis,"fetch").mockImplementation(async(input,init)=>{
+      const url=String(input); let data:unknown=[]
+      if(init?.method==="POST") {
+        saved.push(JSON.parse(String(init.body)))
+        return new Response(JSON.stringify({success:!fail,message:fail?"保存失败":"ok",data:{share_link:"fixture"}}),{status:fail?422:200,headers:{"Content-Type":"application/json"}})
+      }
+      if(url.includes("bootstrap")) data={user:{username:"fixture"}}
+      else if(url.includes("share-groups")) data=[{id:7,name:"已有分组",account_list:[1],password_configured:true}]
+      else if(url.includes("accounts")) data=[{id:1,username:"fixture@test.invalid"}]
+      return new Response(JSON.stringify({success:true,data}),{headers:{"Content-Type":"application/json"}})
+    })
+    return saved
+  }
+  it("starts passwords off, requires content when enabled and closes a newly created share",async()=>{
+    const saved=mockShareApi();const onSaved=vi.fn()
+    const client=new QueryClient({defaultOptions:{queries:{retry:false}}})
+    render(<QueryClientProvider client={client}><ShareEditor admin onSaved={onSaved}/></QueryClientProvider>)
+    fireEvent.click(screen.getByRole("button",{name:"新建分享"}))
+    await screen.findByText("fixture@test.invalid")
+    expect(screen.getByRole("switch",{name:"访问密码"})).not.toBeChecked()
+    expect(screen.queryByLabelText("访问密码内容")).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("switch",{name:"访问密码"}))
+    expect(screen.getByRole("button",{name:"保存分享"})).toBeDisabled()
+    fireEvent.change(screen.getByLabelText("访问密码内容"),{target:{value:"test-pass"}})
+    fireEvent.click(screen.getByRole("button",{name:"保存分享"}))
+    await vi.waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+    expect(saved[0]).toMatchObject({password_enabled:true,password:"test-pass"})
+    expect(onSaved).toHaveBeenCalledOnce()
+  })
+  it.each([false,true])("offers explicit group edit, and closes only on successful save (failure=%s)",async(fail)=>{
+    const saved=mockShareApi(fail);const onSaved=vi.fn()
+    const client=new QueryClient({defaultOptions:{queries:{retry:false}}})
+    render(<QueryClientProvider client={client}><ShareGroupManager admin onSaved={onSaved}/></QueryClientProvider>)
+    fireEvent.click(screen.getByRole("button",{name:"分享组"}))
+    fireEvent.click(await screen.findByRole("button",{name:"编辑"}))
+    expect(screen.getByLabelText("组名称")).toHaveValue("已有分组")
+    expect(screen.getByRole("switch",{name:"访问密码"})).toBeChecked()
+    fireEvent.click(screen.getByRole("switch",{name:"访问密码"}))
+    fireEvent.click(screen.getByRole("button",{name:"保存并同步组内链接"}))
+    await vi.waitFor(()=>expect(saved).toHaveLength(1))
+    expect(saved[0]).toMatchObject({password_enabled:false})
+    if(fail) {
+      await vi.waitFor(()=>expect(screen.getByRole("button",{name:"保存并同步组内链接"})).toBeEnabled())
+      expect(screen.getByRole("dialog")).toBeInTheDocument()
+      expect(screen.getByLabelText("组名称")).toHaveValue("已有分组")
+      expect(onSaved).not.toHaveBeenCalled()
+    } else {
+      await vi.waitFor(()=>expect(screen.queryByRole("dialog")).not.toBeInTheDocument())
+      expect(onSaved).toHaveBeenCalledOnce()
+    }
   })
 })

@@ -195,6 +195,12 @@ class ShareService extends Service
 
     private function applyStatusFilters($query, array $filters)
     {
+        $groupId = (string)($filters['group_id'] ?? '');
+        if ($groupId === '0') {
+            $query->where(function ($query) { $query->whereNull('group_id')->whereOr('group_id', 0); });
+        } elseif (ctype_digit($groupId) && (int)$groupId > 0) {
+            $query->where('group_id', (int)$groupId);
+        }
         $keyword = mb_substr(trim((string)($filters['keyword'] ?? '')), 0, 100);
         if ($keyword !== '') {
             $groupIds = Db::name('share_group')->whereLike('name', '%' . $keyword . '%')->column('id');

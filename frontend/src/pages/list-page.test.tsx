@@ -21,6 +21,7 @@ function mockApi() {
     calls.push({ url, method: (init?.method ?? "GET").toUpperCase(), body: typeof init?.body === "string" ? init.body : null })
     if (url.includes("/bootstrap")) return envelope({ authenticated: true, user: { username: "ops", is_admin: false, vip_expire_at: "2035-01-01 00:00:00" } })
     if (url.includes("shares/batch-delete")) return envelope(null, {}, "已删除 2 个分享链接")
+    if (url.includes("/share-groups")) return envelope([{id:7,name:"测试组"}])
     if (url.includes("/shares")) {
       const params = new URLSearchParams(url.split("?")[1] ?? "")
       return envelope(shareRows, { page: Number(params.get("page") ?? 1), per_page: Number(params.get("per_page") ?? 25), total: 120, last_page: 3, total_pages: 3 })
@@ -58,6 +59,22 @@ describe("shares list", () => {
     await screen.findAllByText("首个分享")
     expect(listCalls()[0].url).toContain("/shares?page=1&per_page=25")
     expect(screen.getByText("共 120 条 · 本页 2 条")).toBeInTheDocument()
+  })
+
+  it("defaults to ungrouped and resets paging and selection when switching groups", async () => {
+    mockApi()
+    renderPage()
+    const boxes=await screen.findAllByLabelText("选择分享链接")
+    expect(listCalls()[0].url).toContain("group_id=0")
+    fireEvent.click(boxes[0])
+    fireEvent.click(screen.getByLabelText("Go to next page"))
+    await waitFor(()=>expect(listCalls().some(c=>c.url.includes("page=2"))).toBe(true))
+    await screen.findByRole("option",{name:"测试组"})
+    fireEvent.change(screen.getByRole("combobox",{name:"筛选分享组"}),{target:{value:"7"}})
+    await waitFor(()=>expect(listCalls().some(c=>c.url.includes("page=1&")&&c.url.includes("group_id=7"))).toBe(true))
+    expect(screen.getByText("已选 0 个")).toBeInTheDocument()
+    fireEvent.change(screen.getByRole("combobox",{name:"筛选分享组"}),{target:{value:"all"}})
+    await waitFor(()=>expect(listCalls().some(c=>c.url.includes("group_id=all"))).toBe(true))
   })
 
   it("searches all share pages through the API", async () => {

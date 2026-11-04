@@ -436,6 +436,7 @@ class FrontendApiController extends BaseController
     public function shares(): Json
     {
         $filters = [
+            'group_id' => (string)$this->request->param('group_id', ''),
             'usage' => (string)$this->request->param('usage', ''),
             'validity' => (string)$this->request->param('validity', ''),
             'keyword' => (string)$this->request->param('keyword', ''),
@@ -481,6 +482,10 @@ class FrontendApiController extends BaseController
         $password = (string)$this->request->param('password', '');
         if ($password === '' && $existing) $password = (string)($existing['password'] ?? '');
         elseif ($password !== '') $password = (string)$this->app->shareAccessService->hashPassword($password);
+        if ($this->request->has('password_enabled')) {
+            if (!(bool)$this->request->param('password_enabled')) $password = '';
+            elseif ($password === '') return $this->fail('开启访问密码后请输入密码', 422);
+        }
         $duration = max(0, min(525600, (int)$this->request->param('duration_minutes', 0)));
         $expire = $duration > 0 ? null : ($this->request->param('expire') ?: null);
         $data = ['owner' => $owner, 'name' => $name, 'template_id' => $templateId ?: null,
@@ -514,6 +519,7 @@ class FrontendApiController extends BaseController
 
     private function safeShare(array $row): array
     {
+        $row['password_configured'] = (string)($row['password'] ?? '') !== '';
         unset($row['password'], $row['html']);
         $row['group_name'] = !empty($row['group_id']) ? (string)(Db::name('share_group')->where('id', (int)$row['group_id'])->value('name') ?? '未分组') : '未分组';
         $row['remark'] = (string)($row['remark'] ?? '');
@@ -546,7 +552,7 @@ class FrontendApiController extends BaseController
     {
         $share = (new SharePage())->fetch((int)$id); if (!$share) return $this->fail('分享页面不存在', 404);
         if (!$this->adminScope() && (int)$share->owner !== (int)$this->user()['id']) return $this->fail('无权访问', 403);
-        $data = $share->toArray(); $data['password_configured'] = $data['password'] !== ''; unset($data['password'], $data['html']);
+        $data = $share->toArray(); $data['password_configured'] = (string)($data['password'] ?? '') !== ''; unset($data['password'], $data['html']);
         return $this->ok($data);
     }
 
@@ -567,6 +573,10 @@ class FrontendApiController extends BaseController
         $password = (string)$this->request->param('password', '');
         if ($password === '' && $existing) $password = (string)$existing->password;
         elseif ($password !== '') $password = (string)$this->app->shareAccessService->hashPassword($password);
+        if (!$requestedGroupId && $this->request->has('password_enabled')) {
+            if (!(bool)$this->request->param('password_enabled')) $password = '';
+            elseif ($password === '') return $this->fail('开启访问密码后请输入密码', 422);
+        }
         $shareLink = (string)$this->request->param('share_link', '');
         if ($shareLink === '') $shareLink = $existing ? (string)$existing->share_link : secure_token(16);
         $htmlInput = (string)$this->request->param('html', '');
