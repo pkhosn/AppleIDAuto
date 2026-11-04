@@ -992,7 +992,8 @@ class FrontendApiController extends BaseController
             $quota = ['max_accounts' => (int)$plan['max_accounts'], 'max_share_pages' => empty($plan['enable_share']) ? 0 : (int)$plan['max_share_pages'], 'min_manual_interval' => (int)$plan['min_manual_interval']];
         }
         $result = $user->updateUser(['id' => $user->id, 'username' => $username, 'password' => $id ? $password : null,
-            'tg_bot_token' => (string)$this->request->param('tg_bot_token', ''), 'tg_chat_id' => (string)$this->request->param('tg_chat_id', ''),
+            'tg_bot_token' => (bool)$this->request->param('clear_telegram', false) ? '' : (trim((string)$this->request->param('tg_bot_token', '')) ?: (string)$user->tg_bot_token),
+            'tg_chat_id' => (bool)$this->request->param('clear_telegram', false) ? '' : (trim((string)$this->request->param('tg_chat_id', '')) ?: (string)$user->tg_chat_id),
             'tg_notify_mode' => $notifyMode,
             'is_admin' => (bool)$this->request->param('is_admin', false) ? 1 : 0, 'vip_expire_at' => $this->request->param('vip_expire_at') ?: null,
             'quota_custom' => (int)$quotaCustom, 'max_accounts' => $quota['max_accounts'], 'min_manual_interval' => $quota['min_manual_interval'],

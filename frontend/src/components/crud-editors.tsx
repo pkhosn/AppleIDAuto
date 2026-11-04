@@ -869,6 +869,7 @@ export function ShareGroupManager({admin,onSaved}:{admin:boolean;onSaved:()=>voi
 type UserValues = {
   username: string
   password: string
+  clear_telegram: boolean
   tg_bot_token: string
   tg_chat_id: string
   tg_notify_mode: "success" | "failure" | "all"
@@ -885,6 +886,7 @@ type UserValues = {
 const userDefaults: UserValues = {
   username: "",
   password: "",
+  clear_telegram: false,
   tg_bot_token: "",
   tg_chat_id: "",
   tg_notify_mode: "all",
@@ -908,6 +910,7 @@ export function UserEditor({ row, onSaved }: { row?: Entity; onSaved: () => void
         ...row,
         password: "",
         username: String(row?.username ?? ""),
+        clear_telegram: false,
         tg_bot_token: String(row?.tg_bot_token ?? ""),
         tg_chat_id: String(row?.tg_chat_id ?? ""),
         tg_notify_mode: ["success", "failure", "all"].includes(String(row?.tg_notify_mode)) ? row?.tg_notify_mode as UserValues["tg_notify_mode"] : "all",
@@ -950,8 +953,9 @@ export function UserEditor({ row, onSaved }: { row?: Entity; onSaved: () => void
               value={values.password}
               onChange={(password) => setValues((v) => ({ ...v, password }))}
             />
-            <Field label="Telegram Bot Token" type="password" value={values.tg_bot_token} onChange={(tg_bot_token) => setValues((v) => ({ ...v, tg_bot_token }))} />
-            <Field label="Telegram Chat ID" value={values.tg_chat_id} onChange={(tg_chat_id) => setValues((v) => ({ ...v, tg_chat_id }))} />
+            <Field label="Telegram Bot Token" type="password" placeholder={row?"留空保留原配置":"请输入 Bot Token"} value={values.tg_bot_token} onChange={(tg_bot_token) => setValues((v) => ({ ...v, tg_bot_token }))} />
+            <Field label="Telegram Chat ID" placeholder={row?"留空保留原配置":"请输入 Chat ID"} value={values.tg_chat_id} onChange={(tg_chat_id) => setValues((v) => ({ ...v, tg_chat_id }))} />
+            {row&&<div className="sm:col-span-2"><Toggle label="清除 Telegram 配置" hint="开启并保存后删除 Bot Token 和 Chat ID；默认保留原配置。" value={values.clear_telegram} onChange={clear_telegram=>setValues(v=>({...v,clear_telegram}))}/></div>}
             <div className="space-y-2 sm:col-span-2"><Label>Telegram 任务结果推送</Label><select className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm" value={values.tg_notify_mode} onChange={(e)=>setValues(v=>({...v,tg_notify_mode:e.target.value as UserValues["tg_notify_mode"]}))}><option value="all">成功和失败都推送</option><option value="success">仅推送成功消息</option><option value="failure">仅推送失败消息</option></select></div>
             <Field
               label="账号配额"

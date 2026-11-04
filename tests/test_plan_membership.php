@@ -29,7 +29,19 @@ try {
     $data['max_accounts']=16;$app->planService->savePlan($data,$pid);
     assertMembership((int)Db::name('user')->where('id',$uid)->value('max_accounts')===7,'custom quota preserved');
     $saveParams=['username'=>$user['username'],'is_admin'=>true,'status'=>true,'quota_custom'=>false,'balance'=>$user['balance'],'vip_expire_at'=>$granted];
+    $fixtureUser=(new app\model\User())->fetch($uid);
+    $fixtureUser->updateUser(['id'=>$uid,'tg_bot_token'=>'123456:FixtureToken','tg_chat_id'=>'123456']);
     assertMembership(memberController($saveParams)->saveAdminUser($uid)->getCode()===200,'admin switches back to plan');
+    $settings=$app->userService->getNotifyMethods($uid);
+    assertMembership($settings['tg_bot_token']==='123456:FixtureToken'&&$settings['tg_chat_id']==='123456','omitted Telegram fields preserved');
+    assertMembership(memberController($saveParams+['tg_bot_token'=>'','tg_chat_id'=>''])->saveAdminUser($uid)->getCode()===200,'blank credential form saved');
+    assertMembership($app->userService->getNotifyMethods($uid)['tg_bot_token']==='123456:FixtureToken','blank Telegram fields preserve credentials');
+    assertMembership(memberController($saveParams+['tg_bot_token'=>'654321:ReplacementToken','tg_chat_id'=>'654321'])->saveAdminUser($uid)->getCode()===200,'explicit replacement saved');
+    assertMembership($app->userService->getNotifyMethods($uid)['tg_chat_id']==='654321','replacement applied');
+    assertMembership(memberController($saveParams+['clear_telegram'=>true])->saveAdminUser($uid)->getCode()===200,'explicit clear saved');
+    $settings=$app->userService->getNotifyMethods($uid);
+    assertMembership(empty($settings['tg_bot_token'])&&empty($settings['tg_chat_id']),'explicit clear deletes both credentials');
+
     $row=Db::name('user')->where('id',$uid)->find();assertMembership((int)$row['max_accounts']===16&&(int)$row['quota_custom']===0,'switch refreshes current plan values');
     $saveParams['quota_custom']=true;$saveParams['max_accounts']=7;$saveParams['max_share_pages']=80;$saveParams['min_manual_interval']=2;
     assertMembership(memberController($saveParams)->saveAdminUser($uid)->getCode()===200,'admin custom quota saved');
