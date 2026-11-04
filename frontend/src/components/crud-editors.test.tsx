@@ -204,7 +204,7 @@ describe("share management save behavior", () => {
 
 
 describe("CopyShare",()=>{
-  it.each(["https://example.test/share/fixture","分享链接：https://example.test/share/fixture\n访问密码：FixturePass"])("copies the server-generated share text: %s",async(text)=>{
+  it.each(["https://example.test/share/fixture","分享链接：https://example.test/share/fixture 访问密码：FixturePass"])("copies the server-generated share text: %s",async(text)=>{
     const user=userEvent.setup()
     const write=vi.spyOn(navigator.clipboard,"writeText").mockResolvedValue()
     const fetch=vi.spyOn(globalThis,"fetch").mockResolvedValue(new Response(JSON.stringify({success:true,data:{text}}),{headers:{"Content-Type":"application/json"}}))

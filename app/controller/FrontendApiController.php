@@ -646,7 +646,7 @@ class FrontendApiController extends BaseController
         $byId = array_column($rows, null, 'id');
         try { $texts = array_map(fn($id) => $this->shareCopyText($byId[$id]), $ids); }
         catch (\RuntimeException $e) { return $this->fail($e->getMessage(), 409); }
-        return $this->ok(['text' => implode("\n\n", $texts), 'count' => count($ids)])->header(['Cache-Control' => 'no-store']);
+        return $this->ok(['text' => implode("  ", $texts), 'count' => count($ids)])->header(['Cache-Control' => 'no-store']);
     }
 
     private function shareCopyText(array $share): string
@@ -658,7 +658,7 @@ class FrontendApiController extends BaseController
         }
         $prefix = rtrim(trim((string)($share['base_url'] ?? '')) ?: $this->request->domain(), '/');
         $text = $prefix . '/share/' . rawurlencode((string)$share['share_link']);
-        return $password !== '' ? "分享链接：" . $text . "\n访问密码：" . $password : $text;
+        return $password !== '' ? "分享链接：" . $text . " 访问密码：" . $password : $text;
     }
 
     public function deleteShare($id): Json

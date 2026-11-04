@@ -33,7 +33,7 @@ try {
     foreach ($generated as $row) {
         checkGroup(str_starts_with((string)$row['password_cipher'],'enc:v1:'),'batch inherited encrypted password');
         $copied=json_decode(groupController(['scope'=>'admin'])->copyShare($row['id'])->getContent(),true);
-        checkGroup(str_ends_with($copied['data']['text'],"\n访问密码：changed"),'batch share copies inherited password');
+        checkGroup(str_ends_with($copied['data']['text']," 访问密码：changed"),'batch share copies inherited password');
     }
     $template=groupController(['name'=>'group test template','html'=>'<p>after</p>','notice_html'=>'<p>notice after</p>'])->saveTemplate($templateId);
     checkGroup($template->getCode()===200,'template updated');
@@ -53,7 +53,7 @@ try {
     Db::name('share')->where('id',$sid)->update(['base_url'=>'https://share.example.test/path/']);
     $copy=groupController()->copyShare($sid);
     $text=json_decode($copy->getContent(),true)['data']['text'];
-    checkGroup($text==="分享链接：https://share.example.test/path/share/{$link}\n访问密码：secret",'copy includes actual custom URL and preserved password');
+    checkGroup($text==="分享链接：https://share.example.test/path/share/{$link} 访问密码：secret",'copy includes actual custom URL and preserved password');
     checkGroup(($copy->getHeader()['Cache-Control']??'')==='no-store','copy response not cached');
     Db::name('share')->where('id',$sid)->update(['owner'=>$owner+99999]);
     checkGroup(groupController()->copyShare($sid)->getCode()===403,'copy rejects another owner');
@@ -72,7 +72,8 @@ try {
     checkGroup(groupController(['ids'=>[$sid,2147483647]])->shareBatchCopy()->getCode()===403,'batch copy rejects missing entries');
     $batchCopy=groupController(['ids'=>[$sid,$generated[1]['id'],$sid]] )->shareBatchCopy();
     $data=json_decode($batchCopy->getContent(),true)['data'];
-    checkGroup($data['count']===2&&str_starts_with($data['text'],"https://share.example.test/path/share/{$link}\n\n分享链接：")&&str_ends_with($data['text'],"\n访问密码：changed"),'batch copy deduplicates, preserves order and includes passwords');
+    checkGroup($data['count']===2&&str_starts_with($data['text'],"https://share.example.test/path/share/{$link}  分享链接：")&&str_ends_with($data['text']," 访问密码：changed"),'batch copy deduplicates, preserves order and includes passwords');
+    checkGroup(!str_contains($data['text'], "\n")&&!str_contains($data['text'], "\r"),'copy is a single line');
     checkGroup(($batchCopy->getHeader()['Cache-Control']??'')==='no-store','batch copy response not cached');
     Db::name('share')->where('id',$sid)->update(['owner'=>$owner+99999]);
     checkGroup(groupController(['ids'=>[$sid,$generated[1]['id']]])->shareBatchCopy()->getCode()===403,'batch copy rejects entire unauthorized selection');
