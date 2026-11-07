@@ -14,7 +14,7 @@ class Share
             return $this->unavailable();
         }
         $stored = (new \app\model\SharePage())->fetchByLink($shareLink);
-        if ($stored && !(bool)$stored->enabled) return $this->unavailable('该分享已关闭');
+        if ($stored && !(bool)$stored->enabled) return view('share/error', ['errorTitle' => '分享已暂停', 'errorMsg' => app()->shareAccessService->closedText((int)$stored->owner), 'errorHelp' => '请稍后再试。']);
         if ($stored && $stored->password && !$request->param('password') && !$request->param('id')
             && !app()->shareAccessService->browserAuthorized((string)$shareLink)) {
             return view('share/password', ['link' => $shareLink]);

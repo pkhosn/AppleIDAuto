@@ -29,7 +29,7 @@ class SecurityHeaders
         }
         if (isset($request->shareEmbedAncestors)) {
             unset($headers['X-Frame-Options']);
-            $headers['Content-Security-Policy'] = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors " . $request->shareEmbedAncestors;
+            $headers['Content-Security-Policy'] = "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors " . $request->shareEmbedAncestors;
         }
         return $response->header($headers);
     }

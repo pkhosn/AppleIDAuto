@@ -214,6 +214,7 @@ CREATE TABLE `user` (
   `mailbox_password_cipher` text CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci,
   `mailbox_tls` tinyint(1) NOT NULL DEFAULT '1',
   `vip_expire_at` datetime DEFAULT NULL,
+  `share_closed_text` varchar(200) NOT NULL DEFAULT '暂时停止分享',
   `share_watermark_mode` varchar(16) NOT NULL DEFAULT 'inherit',
   `share_watermark_text` varchar(160) NOT NULL DEFAULT '',
   `current_plan_id` int unsigned DEFAULT NULL,

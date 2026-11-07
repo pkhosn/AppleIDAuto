@@ -6,12 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>共享账号</title>
 <link rel="stylesheet" href="/static/css/share-enhancements.css?v=20261102-compact1">
-<link rel="stylesheet" href="/static/css/share-embed.css?v=20261029-card1">
+<link rel="stylesheet" href="/static/css/share-embed.css?v=20261107-pause1">
 <link rel="stylesheet" href="/static/css/share-watermark.css?v=20261102-1">
 </head>
-<body>
+<body data-share-paused="{$paused|default=false}">
 <main>
-{if $error}<p role="alert">{$error}</p>{/if}
+{if $error}<section class="share-paused" role="status"><span aria-hidden="true">Ⅱ</span><h1>{$error}</h1><p>请稍后再试</p></section>{/if}
 {if $needsPassword}
 <form method="post" action="" autocomplete="off">
 <label for="password">分享访问密码</label>
@@ -41,5 +41,6 @@
 <p id="copy-status" role="status" aria-live="polite"></p>
 </main>
 <script src="/static/js/share-embed.js" defer></script>
+<script src="/static/js/share-availability.js" defer></script>
 </body>
 </html>

@@ -81,8 +81,15 @@ try {
     Db::name('share')->where('id',$sid)->update(['owner'=>$owner]);
     checkGroup(groupController(['ids'=>[$sid],'enabled'=>false])->setShareEnabled()->getCode()===200,'share disabled');
     $closed=$app->shareAccessService->resolve($link,'','127.0.0.1',false,false);
-    checkGroup(!$closed['status']&&$closed['http_status']===410&&$closed['msg']==='该分享已关闭','closed share rejects public access before password');
+    checkGroup(!$closed['status']&&$closed['http_status']===410&&$closed['msg']==='暂时停止分享','closed share rejects public access before password');
     checkGroup(Db::name('share')->where('id',$sid)->count()===1,'closed share retained');
+    checkGroup(groupController(['mode'=>'inherit','closed_text'=>'维护中，请稍后'])->saveShareSettings()->getCode()===200,'custom pause message saved');
+    $closed=$app->shareAccessService->resolve($link,'','127.0.0.1',false,false);
+    checkGroup($closed['msg']==='维护中，请稍后','public access uses owner pause text');
+    checkGroup(groupController(['mode'=>'inherit','closed_text'=>''])->saveShareSettings()->getCode()===422,'empty pause message rejected');
+    checkGroup(groupController(['mode'=>'inherit','closed_text'=>str_repeat('字',101)])->saveShareSettings()->getCode()===422,'long pause message rejected');
+    groupController(['mode'=>'inherit','closed_text'=>'暂时停止分享'])->saveShareSettings();
+
     checkGroup(groupController(['ids'=>[$sid,2147483647],'enabled'=>true])->setShareEnabled()->getCode()===403,'batch state rejects missing entry');
     checkGroup((int)Db::name('share')->where('id',$sid)->value('enabled')===0,'invalid batch changes nothing');
     Db::name('share')->where('id',$sid)->update(['owner'=>$owner+99999]);

@@ -61,10 +61,10 @@ class ShareController extends BaseController
         if (!$share || !$share->embed_enabled) {
             return view('share/embed', ['accounts' => [], 'needsPassword' => false, 'error' => '此分享未开放嵌入'])->code(404);
         }
-        if (!(bool)$share->enabled) return view('share/embed', ['accounts' => [], 'needsPassword' => false, 'error' => '该分享已关闭'])->code(410);
         $this->assignWatermark((int)$share->owner);
         // SecurityHeaders applies this policy to the gate and errors as well.
         $request->shareEmbedAncestors = \app\service\ShareEmbedPolicy::ancestors((string)$share->embed_origins);
+        if (!(bool)$share->enabled) return view('share/embed', ['accounts' => [], 'needsPassword' => false, 'error' => $this->app->shareAccessService->closedText((int)$share->owner), 'paused' => true])->code(410);
         if ($share->password && !$request->isPost()) {
             return view('share/embed', ['accounts' => [], 'needsPassword' => true, 'error' => '']);
         }
@@ -83,6 +83,13 @@ class ShareController extends BaseController
             }
         }
         return view('share/embed', ['accounts' => $accounts, 'needsPassword' => false, 'error' => '']);
+    }
+
+    public function availability(Request $request): \think\response\Json
+    {
+        $share = \think\facade\Db::name('share')->where('share_link', strtolower(trim((string)$request->route('link'))))->field('enabled,owner,embed_enabled')->find();
+        if (!$share || !$share['embed_enabled']) return json(['available' => false, 'message' => '此分享已不可用']);
+        return json(['available' => (bool)$share['enabled'], 'message' => $this->app->shareAccessService->closedText((int)$share['owner'])]);
     }
 
     public function manualUnlock(Request $request): string

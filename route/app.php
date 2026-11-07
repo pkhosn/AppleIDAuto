@@ -120,6 +120,7 @@ Route::group('pay', function () {
 Route::post('shareapi/v2/resolve', 'api/resolveSharepage');
 Route::rule('shareapi/:link/[:password]', 'api/getSharepage');
 // 嵌入页独立校验，不依赖跨站 Session Cookie。
+Route::get('share/:link/availability', 'share/availability')->completeMatch();
 Route::rule('share/:link/embed', 'share/embed', 'GET|POST')->completeMatch();
 // 注册分享页
 Route::rule('share/', 'share/index')->middleware(Share::class);

@@ -23,7 +23,7 @@ class ShareAccessService extends Service
         $link = strtolower(trim($link));
         $share = (new SharePage())->fetchByLink($link);
         if (!$share) return $this->fail('分享页不存在或已失效', 404);
-        if (!(bool)$share->enabled) return $this->fail('该分享已关闭', 410);
+        if (!(bool)$share->enabled) return $this->fail($this->closedText((int)$share->owner), 410);
 
         $rateKey = $clientIp . "\0" . $link;
         $limiter = $this->app->securityRateLimitService;
@@ -56,6 +56,11 @@ class ShareAccessService extends Service
             ]);
         }
         return ['status' => true, 'http_status' => 200, 'share' => $share, 'msg' => '获取成功'];
+    }
+
+    public function closedText(int $owner): string
+    {
+        return trim((string)Db::name('user')->where('id', $owner)->value('share_closed_text')) ?: '暂时停止分享';
     }
 
     public function hashPassword(string $password): ?string

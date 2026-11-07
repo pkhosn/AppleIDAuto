@@ -728,7 +728,7 @@ class FrontendApiController extends BaseController
     public function shareSettings(): Json
     {
         $user = $this->user(); $branding = $this->app->siteConfigService->branding();
-        return $this->ok(['mode' => $user['share_watermark_mode'] ?? 'inherit', 'text' => $user['share_watermark_text'] ?? '',
+        return $this->ok(['closed_text' => $user['share_closed_text'] ?? '暂时停止分享', 'mode' => $user['share_watermark_mode'] ?? 'inherit', 'text' => $user['share_watermark_text'] ?? '',
             'default_enabled' => $branding['share_watermark_enabled'], 'default_text' => $branding['share_watermark_text']]);
     }
 
@@ -736,9 +736,11 @@ class FrontendApiController extends BaseController
     {
         $mode = (string)$this->request->param('mode', 'inherit');
         $text = trim((string)$this->request->param('text', ''));
+        $closedText = trim((string)$this->request->param('closed_text', $this->user()['share_closed_text'] ?? '暂时停止分享'));
+        if ($closedText === '' || mb_strlen($closedText) > 100) return $this->fail('关闭分享提示应为 1 至 100 个字符', 422);
         if (!in_array($mode, ['inherit', 'custom', 'off'], true)) return $this->fail('水印模式无效', 422);
         if (mb_strlen($text) > 40 || ($mode === 'custom' && $text === '')) return $this->fail('自定义水印应为 1 至 40 个字符', 422);
-        Db::name('user')->where('id', (int)$this->user()['id'])->update(['share_watermark_mode' => $mode, 'share_watermark_text' => $text]);
+        Db::name('user')->where('id', (int)$this->user()['id'])->update(['share_watermark_mode' => $mode, 'share_watermark_text' => $text, 'share_closed_text' => $closedText]);
         return $this->ok(null, '分享设置已保存');
     }
 

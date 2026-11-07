@@ -31,7 +31,7 @@ final class ShareSchemaMigration
             }
         }
         $userColumns = array_column($pdo->query('SHOW COLUMNS FROM user')->fetchAll(PDO::FETCH_ASSOC), 'Field');
-        foreach (['share_watermark_mode' => "VARCHAR(16) NOT NULL DEFAULT 'inherit'", 'share_watermark_text' => "VARCHAR(160) NOT NULL DEFAULT ''"] as $column => $type) {
+        foreach (['share_closed_text' => "VARCHAR(200) NOT NULL DEFAULT '暂时停止分享'", 'share_watermark_mode' => "VARCHAR(16) NOT NULL DEFAULT 'inherit'", 'share_watermark_text' => "VARCHAR(160) NOT NULL DEFAULT ''"] as $column => $type) {
             if (!in_array($column, $userColumns, true)) $pdo->exec("ALTER TABLE user ADD COLUMN {$column} {$type}");
         }
         foreach (['group_id', 'template_id'] as $column) {
