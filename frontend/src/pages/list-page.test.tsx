@@ -6,8 +6,8 @@ import userEvent from "@testing-library/user-event"
 import { ListPage } from "./list-page"
 
 const shareRows = [
-  { id: 1, remark: "首个分享", share_link: "alpha01", account_count: 2, access_status: "unused", expiry_label: "永久有效" },
-  { id: 2, remark: "第二个分享", share_link: "beta02", account_count: 1, access_status: "used", expiry_label: "首次访问后失效" },
+  { id: 1, remark: "首个分享", share_link: "alpha01", enabled:1, account_count: 2, access_status: "unused", expiry_label: "永久有效" },
+  { id: 2, remark: "第二个分享", share_link: "beta02", enabled:1, account_count: 1, access_status: "used", expiry_label: "首次访问后失效" },
 ]
 
 const calls: Array<{ url: string; method: string; body: string | null }> = []
@@ -21,6 +21,7 @@ function mockApi() {
     const url = String(input)
     calls.push({ url, method: (init?.method ?? "GET").toUpperCase(), body: typeof init?.body === "string" ? init.body : null })
     if (url.includes("/bootstrap")) return envelope({ authenticated: true, user: { username: "ops", is_admin: false, vip_expire_at: "2035-01-01 00:00:00" } })
+    if (url.includes("shares/set-enabled")) return envelope(null,{},"分享已关闭")
     if (url.includes("shares/batch-copy")) return envelope({text:"https://example.test/share/alpha01\n分享链接：https://example.test/share/beta02 访问密码：fixture",count:2})
     if (url.includes("shares/batch-delete")) return envelope(null, {}, "已删除 2 个分享链接")
     if (url.includes("/share-groups")) return envelope([{id:7,name:"测试组"}])
@@ -103,6 +104,18 @@ describe("shares list", () => {
     expect(request?.method).toBe("POST")
     expect(JSON.parse(request?.body??"{}")).toEqual({ids:[1,2]})
     expect(screen.getByText("已选 2 个")).toBeInTheDocument()
+  })
+
+  it("toggles individual shares and bulk closes only selected shares",async()=>{
+    mockApi();renderPage()
+    const toggle=(await screen.findAllByRole("switch",{name:"分享 1 开启状态"}))[0]
+    fireEvent.click(toggle)
+    await waitFor(()=>expect(calls.some(c=>c.url.includes("shares/set-enabled")&&c.body===JSON.stringify({ids:[1],enabled:false}))).toBe(true))
+    await waitFor(()=>expect(screen.getAllByRole("switch",{name:"分享 1 开启状态"})[0]).not.toHaveAttribute("data-disabled"))
+    expect(screen.getByRole("button",{name:"批量关闭"})).toBeDisabled()
+    fireEvent.click(screen.getByLabelText("全选当前页分享链接"))
+    fireEvent.click(screen.getByRole("button",{name:"批量关闭"}))
+    await waitFor(()=>expect(calls.some(c=>c.body===JSON.stringify({ids:[1,2],enabled:false}))).toBe(true))
   })
 
   it("closes the batch delete dialog and refreshes the list after confirming", async () => {

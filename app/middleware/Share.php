@@ -14,6 +14,7 @@ class Share
             return $this->unavailable();
         }
         $stored = (new \app\model\SharePage())->fetchByLink($shareLink);
+        if ($stored && !(bool)$stored->enabled) return $this->unavailable('该分享已关闭');
         if ($stored && $stored->password && !$request->param('password') && !$request->param('id')
             && !app()->shareAccessService->browserAuthorized((string)$shareLink)) {
             return view('share/password', ['link' => $shareLink]);

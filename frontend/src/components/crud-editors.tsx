@@ -536,6 +536,7 @@ export function AccountCredentials({ row, admin }: { row: Entity; admin: boolean
 }
 
 type ShareValues = {
+  enabled: boolean
   share_link: string
   password: string
   password_enabled: boolean
@@ -552,6 +553,7 @@ type ShareValues = {
 }
 
 const shareDefaults: ShareValues = {
+  enabled: true,
   share_link: "",
   password: "",
   password_enabled: false,
@@ -624,6 +626,7 @@ export function ShareEditor({ row, admin, onSaved }: { row?: Entity; admin: bool
         setValues({
           ...shareDefaults,
           ...d,
+          enabled: d.enabled === undefined ? true : Boolean(d.enabled),
           password: "",
           password_enabled: Boolean(d.password_configured),
           password_configured: Boolean(d.password_configured),
@@ -685,6 +688,7 @@ export function ShareEditor({ row, admin, onSaved }: { row?: Entity; admin: bool
             <div className="space-y-2 sm:col-span-2"><Label>页面模板</Label><select className="h-8 w-full rounded-lg border bg-background px-2.5 text-sm" value={values.template_id} disabled={values.group_id>0} onChange={e=>setValues(v=>({...v,template_id:Number(e.target.value)}))}><option value={0}>使用默认模板</option>{hasOpaqueTemplate&&<option value={values.template_id}>保持当前私有模板</option>}{pageTemplates.options.map(option=><option key={String(option.value)} value={option.value}>{option.label}</option>)}</select></div>
             {values.group_id > 0 ? <p className="rounded-lg border p-3 text-sm text-muted-foreground sm:col-span-2">访问密码由所属分享组控制</p> : <SharePassword enabled={values.password_enabled} configured={values.password_configured} password={values.password} onToggle={password_enabled=>setValues(v=>({...v,password_enabled,password:""}))} onChange={password=>setValues(v=>({...v,password}))} />}
             {values.group_id>0&&<p className="text-xs text-muted-foreground sm:col-span-2">账号、密码、有效期和模板由所属分享组统一控制；编辑组后，所有所属链接会同步更新。</p>}
+            <Toggle label="开启分享" value={values.enabled} onChange={enabled=>setValues(v=>({...v,enabled}))}/>
             <Toggle
               label="记录首次访问"
               value={values.access_tracking}

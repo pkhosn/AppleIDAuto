@@ -602,7 +602,7 @@ class FrontendApiController extends BaseController
             if (!$template) return $this->fail('请选择当前用户自己的分享模板', 422);
             $html = (string)$template['html']; $noticeHtml = (string)$template['notice_html'];
         }
-        $data = ['share_link' => $shareLink,
+        $data = ['enabled' => (int)(bool)$this->request->param('enabled', $existing ? $existing->enabled : true), 'share_link' => $shareLink,
             'embed_enabled' => (int)(bool)$this->request->param('embed_enabled', $existing ? $existing->embed_enabled : false),
             'embed_origins' => (string)$this->request->param('embed_origins', $existing ? $existing->embed_origins : ''),
             'account_list' => implode(',', $accountIds), 'password' => $password === '' ? null : $password, 'password_cipher' => $passwordCipher, 'owner' => $owner,
@@ -707,6 +707,39 @@ class FrontendApiController extends BaseController
                 $expiry, (string)$this->request->param('remark', ''), $baseUrl, $linkDefaults, !$admin);
             return $this->ok(array_map(fn($link) => $prefix . '/share/' . $link, $links), '批量生成成功');
         } catch (\Throwable $e) { return $this->fail($e->getMessage(), 422); }
+    }
+
+    public function setShareEnabled(): Json
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)$this->request->param('ids', [])), fn($id) => $id > 0)));
+        if (!$ids || count($ids) > 500) return $this->fail('请选择 1 至 500 个分享链接', 422);
+        if (!$this->request->has('enabled')) return $this->fail('缺少分享开关状态', 422);
+        $enabled = (int)(bool)$this->request->param('enabled');
+        $updated = Db::transaction(function () use ($ids, $enabled): bool {
+            $query = Db::name('share')->whereIn('id', $ids);
+            if (!$this->adminScope()) $query->where('owner', (int)$this->user()['id']);
+            if (count($query->field('id')->lock(true)->select()) !== count($ids)) return false;
+            Db::name('share')->whereIn('id', $ids)->update(['enabled' => $enabled]);
+            return true;
+        });
+        return $updated ? $this->ok(null, $enabled ? '分享已开启' : '分享已关闭') : $this->fail('包含不存在或无权操作的分享链接', 403);
+    }
+
+    public function shareSettings(): Json
+    {
+        $user = $this->user(); $branding = $this->app->siteConfigService->branding();
+        return $this->ok(['mode' => $user['share_watermark_mode'] ?? 'inherit', 'text' => $user['share_watermark_text'] ?? '',
+            'default_enabled' => $branding['share_watermark_enabled'], 'default_text' => $branding['share_watermark_text']]);
+    }
+
+    public function saveShareSettings(): Json
+    {
+        $mode = (string)$this->request->param('mode', 'inherit');
+        $text = trim((string)$this->request->param('text', ''));
+        if (!in_array($mode, ['inherit', 'custom', 'off'], true)) return $this->fail('水印模式无效', 422);
+        if (mb_strlen($text) > 40 || ($mode === 'custom' && $text === '')) return $this->fail('自定义水印应为 1 至 40 个字符', 422);
+        Db::name('user')->where('id', (int)$this->user()['id'])->update(['share_watermark_mode' => $mode, 'share_watermark_text' => $text]);
+        return $this->ok(null, '分享设置已保存');
     }
 
     public function shareBatchDelete(): Json

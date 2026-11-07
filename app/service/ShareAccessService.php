@@ -23,6 +23,7 @@ class ShareAccessService extends Service
         $link = strtolower(trim($link));
         $share = (new SharePage())->fetchByLink($link);
         if (!$share) return $this->fail('分享页不存在或已失效', 404);
+        if (!(bool)$share->enabled) return $this->fail('该分享已关闭', 410);
 
         $rateKey = $clientIp . "\0" . $link;
         $limiter = $this->app->securityRateLimitService;

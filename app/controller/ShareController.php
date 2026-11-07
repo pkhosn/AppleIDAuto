@@ -9,11 +9,13 @@ use think\response\View;
 
 class ShareController extends BaseController
 {
-    protected function initialize()
+    private function assignWatermark(int $owner): void
     {
         $branding = $this->app->siteConfigService->branding();
-        \think\facade\View::assign('shareWatermarkEnabled', $branding['share_watermark_enabled']);
-        \think\facade\View::assign('shareWatermarkText', $branding['share_watermark_text']);
+        $user = \think\facade\Db::name('user')->where('id', $owner)->field('share_watermark_mode,share_watermark_text')->find();
+        $mode = $user['share_watermark_mode'] ?? 'inherit';
+        \think\facade\View::assign('shareWatermarkEnabled', $mode === 'inherit' ? $branding['share_watermark_enabled'] : $mode === 'custom');
+        \think\facade\View::assign('shareWatermarkText', $mode === 'custom' ? (string)$user['share_watermark_text'] : $branding['share_watermark_text']);
     }
 
     public function index(Request $request): View
@@ -22,6 +24,7 @@ class ShareController extends BaseController
         if (!$share) {
             return view('share/error', ['errorTitle' => '操作有误', 'errorMsg' => '非法请求']);
         }
+        $this->assignWatermark((int)$share->owner);
         $accountList = $share->account_list;
         $accounts = [];
         foreach ($accountList as $accountID) {
@@ -58,6 +61,8 @@ class ShareController extends BaseController
         if (!$share || !$share->embed_enabled) {
             return view('share/embed', ['accounts' => [], 'needsPassword' => false, 'error' => '此分享未开放嵌入'])->code(404);
         }
+        if (!(bool)$share->enabled) return view('share/embed', ['accounts' => [], 'needsPassword' => false, 'error' => '该分享已关闭'])->code(410);
+        $this->assignWatermark((int)$share->owner);
         // SecurityHeaders applies this policy to the gate and errors as well.
         $request->shareEmbedAncestors = \app\service\ShareEmbedPolicy::ancestors((string)$share->embed_origins);
         if ($share->password && !$request->isPost()) {

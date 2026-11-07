@@ -57,6 +57,9 @@ Route::group('frontend-api/v1', function () {
     Route::get('tasks', 'frontendApi/tasks');
     Route::post('tasks/:id/restart', 'frontendApi/restartTask');
     Route::get('records', 'frontendApi/records');
+    Route::get('share-settings', 'frontendApi/shareSettings');
+    Route::post('share-settings', 'frontendApi/saveShareSettings');
+    Route::post('shares/set-enabled', 'frontendApi/setShareEnabled');
     Route::post('shares/batch-create', 'frontendApi/shareBatchCreate');
     Route::post('shares/batch-copy', 'frontendApi/shareBatchCopy');
     Route::post('shares/batch-delete', 'frontendApi/shareBatchDelete');

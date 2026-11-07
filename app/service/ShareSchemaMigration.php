@@ -25,10 +25,14 @@ final class ShareSchemaMigration
             if (!in_array('password_cipher', $fields, true)) $pdo->exec("ALTER TABLE {$table} ADD COLUMN password_cipher TEXT NULL");
         }
         $columns = array_column($pdo->query('SHOW COLUMNS FROM share')->fetchAll(PDO::FETCH_ASSOC), 'Field');
-        foreach (['embed_enabled' => 'TINYINT(1) NOT NULL DEFAULT 0', 'embed_origins' => 'TEXT NULL'] as $column => $type) {
+        foreach (['enabled' => 'TINYINT(1) NOT NULL DEFAULT 1', 'embed_enabled' => 'TINYINT(1) NOT NULL DEFAULT 0', 'embed_origins' => 'TEXT NULL'] as $column => $type) {
             if (!in_array($column, $columns, true)) {
                 $pdo->exec("ALTER TABLE share ADD COLUMN {$column} {$type}");
             }
+        }
+        $userColumns = array_column($pdo->query('SHOW COLUMNS FROM user')->fetchAll(PDO::FETCH_ASSOC), 'Field');
+        foreach (['share_watermark_mode' => "VARCHAR(16) NOT NULL DEFAULT 'inherit'", 'share_watermark_text' => "VARCHAR(160) NOT NULL DEFAULT ''"] as $column => $type) {
+            if (!in_array($column, $userColumns, true)) $pdo->exec("ALTER TABLE user ADD COLUMN {$column} {$type}");
         }
         foreach (['group_id', 'template_id'] as $column) {
             if (!in_array($column, $columns, true)) {
