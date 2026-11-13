@@ -112,16 +112,17 @@ class FakeMailbox:
         self.calls.append(f"lookup:{expected_kind}")
         if self.error:
             raise MailRecoveryError(self.error)
-        if self.existing:
+        if self.existing and "<fixture>" not in (exclude_message_ids or set()):
             return AppleRecoveryLink(expected_kind, "https://iforgot.apple.com/reset/token", "<fixture>")
         return None
 
     async def wait_for_link(self, config, expected_kind, not_before, timeout_seconds=180, poll_seconds=10,
                             expected_account=None, exclude_message_ids=None):
         self.calls.append(expected_kind)
+        self.wait_excluded = set(exclude_message_ids or set())
         if self.error:
             raise MailRecoveryError(self.error)
-        return AppleRecoveryLink(expected_kind, "https://iforgot.apple.com/reset/token", "<fixture>")
+        return AppleRecoveryLink(expected_kind, "https://iforgot.apple.com/reset/new-token", "<new-fixture>")
 
     async def wait_for_security_rollback_confirmation(self, config, not_before, timeout_seconds=90,
                                                        expected_account=None):
@@ -335,7 +336,7 @@ class MailRecoveryTest(unittest.TestCase):
         self.assertEqual(["complete_email_reset", "check"], account.actions)
         self.assertEqual(["lookup:password_reset"], mailbox.calls)
 
-    def test_existing_recent_reset_mail_is_used_without_requesting_another(self):
+    def test_automatic_recovery_excludes_existing_recent_reset_mail(self):
         panel, account, mailbox = FakePanel(), FakeAccountClient(), FakeMailbox(existing=True)
         with tempfile.TemporaryDirectory() as directory:
             result = asyncio.run(run_controlled_email_password_change(
@@ -343,8 +344,75 @@ class MailRecoveryTest(unittest.TestCase):
                 password_factory=lambda: PASSWORD,
             ))
         self.assertEqual("success", result["status"])
-        self.assertEqual(["complete_email_reset", "check"], account.actions)
-        self.assertEqual(["lookup:password_reset"], mailbox.calls)
+        self.assertEqual(["request_email_reset", "complete_email_reset", "check"], account.actions)
+        self.assertEqual(["lookup:password_reset", "lookup:password_reset", "password_reset"], mailbox.calls)
+        self.assertEqual({"<fixture>"}, mailbox.wait_excluded)
+        self.assertEqual("https://iforgot.apple.com/reset/new-token", account.payloads[1]["reset_url"])
+
+    def test_snapshot_excludes_all_recent_messages(self):
+        class MultipleOldMessages(FakeMailbox):
+            async def find_link(self, config, expected_kind, not_before, expected_account=None,
+                                exclude_message_ids=None):
+                for message_id in ('<old-1>', '<old-2>'):
+                    if message_id not in (exclude_message_ids or set()):
+                        return AppleRecoveryLink(expected_kind, 'https://iforgot.apple.com/old', message_id)
+                return None
+        mailbox, account = MultipleOldMessages(), FakeAccountClient()
+        with tempfile.TemporaryDirectory() as directory:
+            result = asyncio.run(run_controlled_email_password_change(
+                1, Path(directory), panel=FakePanel(), account_client=account, mailbox_client=mailbox,
+                password_factory=lambda: PASSWORD,
+            ))
+        self.assertEqual('success', result['status'])
+        self.assertEqual({'<old-1>', '<old-2>'}, mailbox.wait_excluded)
+
+    def test_incomplete_snapshot_stops_before_request(self):
+        class UnidentifiableMessage(FakeMailbox):
+            async def find_link(self, *args, **kwargs):
+                return AppleRecoveryLink('password_reset', 'https://iforgot.apple.com/old', '')
+        account = FakeAccountClient()
+        with tempfile.TemporaryDirectory() as directory:
+            result = asyncio.run(run_controlled_email_password_change(
+                1, Path(directory), panel=FakePanel(), account_client=account,
+                mailbox_client=UnidentifiableMessage(), password_factory=lambda: PASSWORD,
+            ))
+            self.assertTrue(result['escrow_retained'])
+        self.assertEqual('recovery_mailbox_snapshot_incomplete', result['error_code'])
+        self.assertEqual([], account.actions)
+
+    def test_old_mail_without_new_mail_stops_before_password_submission(self):
+        class NoNewMail(FakeMailbox):
+            async def wait_for_link(self, *args, **kwargs):
+                self.wait_excluded = kwargs['exclude_message_ids']
+                raise MailRecoveryError('recovery_email_timeout')
+        mailbox, account = NoNewMail(existing=True), FakeAccountClient()
+        with tempfile.TemporaryDirectory() as directory:
+            result = asyncio.run(run_controlled_email_password_change(
+                1, Path(directory), panel=FakePanel(), account_client=account, mailbox_client=mailbox,
+                password_factory=lambda: PASSWORD,
+            ))
+            self.assertTrue(result['escrow_retained'])
+        self.assertEqual('recovery_email_timeout', result['error_code'])
+        self.assertEqual({'<fixture>'}, mailbox.wait_excluded)
+        self.assertEqual(['request_email_reset'], account.actions)
+
+    def test_missing_password_form_is_not_retried(self):
+        class MissingForm(FakeAccountClient):
+            async def run(self, action, payload):
+                if action == 'complete_email_reset':
+                    self.actions.append(action)
+                    return {'status': False, 'error_code': 'password_form_missing', 'password_submitted': False}
+                return await super().run(action, payload)
+        account, panel = MissingForm(), FakePanel()
+        with tempfile.TemporaryDirectory() as directory:
+            result = asyncio.run(run_controlled_email_password_change(
+                1, Path(directory), panel=panel, account_client=account, mailbox_client=FakeMailbox(),
+                password_factory=lambda: PASSWORD,
+            ))
+            self.assertTrue(result['escrow_retained'])
+        self.assertEqual('password_form_missing', result['error_code'])
+        self.assertTrue(panel.disabled)
+        self.assertEqual(['request_email_reset', 'complete_email_reset'], account.actions)
 
     def test_mailbox_failure_freezes_and_retains_escrow(self):
         panel, account, mailbox = FakePanel(), FakeAccountClient(), FakeMailbox(error="recovery_email_timeout")

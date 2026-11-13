@@ -458,6 +458,17 @@ class FeatureRunnerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual('success', self.runner.features.rows(1)['password_update']['result'])
         self.assertNotIn('password_update', self.runner.features.due(1))
 
+    async def test_unrendered_authentication_never_triggers_password_recovery(self):
+        self.client.run = AsyncMock(return_value={
+            'status': True, 'state': 'authentication_challenge_unrendered',
+        })
+        await self.runner.run(1, self.info)
+        self.w._auto_email_recovery.assert_not_awaited()
+        self.w.panel.disable_account.assert_not_awaited()
+        self.assertEqual(1, self.client.run.await_count)
+        self.assertFalse(self.w.panel.report.call_args.args[1])
+        self.assertIn('安全挑战页面未显示', self.w.panel.report.call_args.args[2])
+
     async def test_security_rollback_also_avoids_duplicate_password_rotation(self):
         self.w._mailbox_has_security_rollback.return_value = True
         await self.runner.run(1, self.info)

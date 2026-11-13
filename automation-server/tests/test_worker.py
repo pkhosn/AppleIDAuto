@@ -163,3 +163,38 @@ class LegacyPasswordEscrowTest(unittest.TestCase):
                 asyncio.run(worker._run_locked(1))
             worker.executor.run.assert_not_awaited()
             worker.panel.disable_account.assert_awaited_once()
+
+
+class LegacyEmailRecoveryTriggerTest(unittest.IsolatedAsyncioTestCase):
+    async def test_only_explicit_invalid_password_triggers_recovery(self):
+        import tempfile
+        from pathlib import Path
+        from app.models import TaskStore
+        for code in ('password_invalid', 'authentication_challenge_unrendered'):
+            with self.subTest(code=code), tempfile.TemporaryDirectory() as directory:
+                store = TaskStore(str(Path(directory) / 'tasks.sqlite3'))
+                worker = Worker(store, MagicMock())
+                worker.panel = MagicMock()
+                worker.panel.task_info = AsyncMock(return_value={
+                    'username': 'fixture@example.test', 'enable': True,
+                    'recovery_methods': ['email_password'],
+                    'email_recovery': {'configured': True},
+                })
+                worker.panel.report = AsyncMock()
+                worker.panel.disable_account = AsyncMock()
+                worker.executor.run = AsyncMock(return_value=(False, code, None, code, None))
+                worker._auto_email_recovery = AsyncMock(return_value=(True, 'recovered', None, None))
+                with (
+                    patch('app.worker.settings', replace(settings, database_path=str(Path(directory) / 'tasks.sqlite3'))),
+                    patch('app.worker.notify_account_event', AsyncMock(return_value='not_configured')),
+                ):
+                    await worker._run_locked(1)
+                if code == 'password_invalid':
+                    worker._auto_email_recovery.assert_awaited_once()
+                    self.assertEqual('success', store.get(1)['status'])
+                else:
+                    worker._auto_email_recovery.assert_not_awaited()
+                    worker.panel.disable_account.assert_not_awaited()
+                    worker.panel.report.assert_awaited_once_with('fixture@example.test', False, code, None, profile=None)
+                    self.assertEqual('failed', store.get(1)['status'])
+                store.db.close()

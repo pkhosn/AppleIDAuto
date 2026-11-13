@@ -80,15 +80,30 @@ async def run_controlled_email_password_change(
         if request_only and resume_existing_link:
             raise ControlledRecoveryError("invalid_recovery_mode", stage)
 
-        # First consume a recent, authenticated Apple reset mail already in
-        # the configured mailbox.  Requesting another reset link can revoke a
-        # still-valid link, so a new Apple request is the fallback only.
+        # Automatic recovery must not replay a recent, possibly consumed link.
+        # Snapshot eligible messages before requesting a new email. The mailbox
+        # date filter tolerates clock skew, so a timestamp alone is insufficient.
+        # Only the explicit resume mode may consume an existing link.
         stage = "mailbox_lookup"
-        existing_since = datetime.now(timezone.utc) - timedelta(minutes=max(link_max_age_minutes, 1))
+        existing_since = datetime.now(timezone.utc) - timedelta(minutes=max(link_max_age_minutes, 5))
+        excluded_message_ids: set[str] = set()
+        reset_link = None
         try:
-            reset_link = await mailbox_client.find_link(
-                mailbox, "password_reset", existing_since, expected_account=expected_account
-            )
+            for _ in range(100):
+                existing_link = await mailbox_client.find_link(
+                    mailbox, "password_reset", existing_since, expected_account=expected_account,
+                    exclude_message_ids=excluded_message_ids,
+                )
+                if existing_link is None:
+                    break
+                if resume_existing_link:
+                    reset_link = existing_link
+                    break
+                if not existing_link.message_id or existing_link.message_id in excluded_message_ids:
+                    raise ControlledRecoveryError("recovery_mailbox_snapshot_incomplete", stage)
+                excluded_message_ids.add(existing_link.message_id)
+            else:
+                raise ControlledRecoveryError("recovery_mailbox_snapshot_incomplete", stage)
         except MailRecoveryError as exc:
             raise ControlledRecoveryError(exc.code, stage) from exc
 
@@ -115,7 +130,7 @@ async def run_controlled_email_password_change(
             try:
                 reset_link = await mailbox_client.wait_for_link(
                     mailbox, "password_reset", requested_at, timeout_seconds=mailbox_wait_seconds,
-                    expected_account=expected_account,
+                    expected_account=expected_account, exclude_message_ids=excluded_message_ids,
                 )
             except MailRecoveryError as exc:
                 raise ControlledRecoveryError(exc.code, stage) from exc

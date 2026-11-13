@@ -80,7 +80,7 @@ class Worker:
                 if not ok and error_code == "two_factor" and run_info.get("enable_auto_disable_two_factor"):
                     ok, message, password, error_code = await self._auto_disable_two_factor(account_id, info)
                     profile_payload = None
-                elif not ok and error_code in {"password_invalid", "authentication_challenge_unrendered"} and self._email_recovery_available(run_info):
+                elif not ok and error_code == "password_invalid" and self._email_recovery_available(run_info):
                     ok, message, password, error_code = await self._auto_email_recovery(account_id, run_info)
                     profile_payload = None
             if escrow_path and run_info.get('_mutation_started') and not ok:
