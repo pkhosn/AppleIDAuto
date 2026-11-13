@@ -45,7 +45,39 @@ class TaskStore:
         step_columns = {row[1] for row in self.db.execute("PRAGMA table_info(task_run_steps)").fetchall()}
         if "metadata" not in step_columns:
             self.db.execute("ALTER TABLE task_run_steps ADD COLUMN metadata TEXT NOT NULL DEFAULT '{}'")
+        self.db.execute("""CREATE TABLE IF NOT EXISTS driver_job_evidence (
+            job_id TEXT PRIMARY KEY, account_id INTEGER NOT NULL, action TEXT NOT NULL,
+            status TEXT NOT NULL, stage TEXT NOT NULL DEFAULT '', error_code TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL)""")
+        self.db.execute("""CREATE INDEX IF NOT EXISTS driver_evidence_account_idx
+            ON driver_job_evidence(account_id, created_at DESC)""")
         self.db.commit()
+
+    def record_driver_job(self, account_id: int, job_id: str, action: str):
+        now = utc_now()
+        self.db.execute("""INSERT OR IGNORE INTO driver_job_evidence
+            (job_id,account_id,action,status,created_at,updated_at) VALUES(?,?,?,'running',?,?)""",
+            (job_id, account_id, action, now, now))
+        self.db.execute("""DELETE FROM driver_job_evidence WHERE account_id=? AND job_id NOT IN
+            (SELECT job_id FROM driver_job_evidence WHERE account_id=? ORDER BY created_at DESC LIMIT 100)""",
+            (account_id, account_id))
+        self.db.commit()
+
+    def finish_driver_job(self, job_id: str, status: str, stage: str = '', error_code: str = ''):
+        self.db.execute("""UPDATE driver_job_evidence SET status=?,stage=?,error_code=?,updated_at=?
+            WHERE job_id=?""", (status, stage[:80], error_code[:120], utc_now(), job_id))
+        self.db.commit()
+
+    def latest_failure_log(self, account_id: int):
+        row = self.db.execute("""SELECT message,created_at FROM task_logs WHERE account_id=?
+            AND status='failed' AND action IN ('run','email_recovery','email_password_recovery','security_rollback')
+            ORDER BY id DESC LIMIT 1""", (account_id,)).fetchone()
+        return dict(row) if row else None
+
+    def driver_jobs(self, account_id: int):
+        return [dict(row) for row in self.db.execute(
+            'SELECT * FROM driver_job_evidence WHERE account_id=? ORDER BY created_at DESC LIMIT 20',
+            (account_id,)).fetchall()]
 
     def upsert(self, account_id: int, status: str, message: str = "", next_run_at=None):
         self.db.execute("""INSERT INTO tasks(account_id,status,next_run_at,message,updated_at)

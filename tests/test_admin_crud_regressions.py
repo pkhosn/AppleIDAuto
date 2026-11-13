@@ -79,7 +79,9 @@ class AdminCrudRegressionTest(unittest.TestCase):
         self.assertIn("function finalizeRecovery", controller)
         self.assertIn("hash_equals", service)
         self.assertIn("'enable_auto_update_password' => 0", service)
-        self.assertIn("'enable_delete_devices' => 0", service)
+        finalization = service.split("public function finalizeRecovery", 1)[1].split("public function reconcileConfirmedRecovery", 1)[0]
+        # Recovery must preserve the configured device-cleanup preference.
+        self.assertNotIn("'enable_delete_devices' => 0", finalization)
         self.assertIn("'check_interval' => 30", service)
 
     def test_mail_recovery_credentials_are_encrypted_and_manual_only(self):

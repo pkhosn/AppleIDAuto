@@ -19,6 +19,7 @@ class Settings:
     panel_api_key: str = os.getenv("PANEL_API_KEY", "123456")
     redis_url: str = os.getenv("REDIS_URL", "redis://redis:6379/0")
     database_path: str = os.getenv("DATABASE_PATH", "data/tasks.sqlite3")
+    driver_artifact_dir: str = os.getenv("DRIVER_ARTIFACT_DIR", "/data/driver-artifacts")
     max_retries: int = int(os.getenv("MAX_RETRIES", "3"))
     technical_retry_delays: tuple[int, ...] = _technical_retry_delays()
     request_timeout: float = float(os.getenv("REQUEST_TIMEOUT", "10"))

@@ -20,6 +20,54 @@ class AccountClient:
         )
 
     async def _run(self, action: str, payload: dict, authorization_probe=None, progress_callback=None) -> dict:
+        # Persist only the association and safe result metadata. Never retain
+        # the driver payload, which contains Apple/mailbox/Telegram credentials.
+        from .models import TaskStore
+        payload = dict(payload)
+        account_id = int(payload.pop('_account_id', 0) or 0)
+        journal = None
+        job_id = ''
+
+        def submitted(identifier):
+            nonlocal journal, job_id
+            job_id = identifier
+            if account_id > 0:
+                try:
+                    journal = TaskStore(settings.database_path)
+                    journal.record_driver_job(account_id, job_id, action)
+                except Exception:
+                    # Evidence collection must not change a submitted operation.
+                    if journal:
+                        journal.db.close()
+                    journal = None
+
+        def finished(status, stage='', code=''):
+            if journal:
+                try:
+                    journal.finish_driver_job(job_id, status, str(stage), str(code))
+                except Exception:
+                    pass
+
+        try:
+            result = await self._run_driver(action, payload, authorization_probe, progress_callback, submitted)
+            state = str(result.get('state') or 'normal')
+            steps = {**(result.get('profile_results') or {}), **(result.get('step_results') or {})}
+            failed_step = next((step for step in steps.values() if isinstance(step, dict)
+                                and step.get('status') in {'failed', 'uncertain', 'blocked',
+                                                          'detect_failed', 'restore_failed', 'manual_required'}), {})
+            failed = not result.get('status') or state != 'normal' or bool(failed_step)
+            finished('failed' if failed else 'success', result.get('stage') or failed_step.get('stage', ''),
+                     result.get('error_code') or failed_step.get('error_code') or (state if state != 'normal' else ''))
+            return result
+        except BaseException as exc:
+            finished('failed', 'interrupted', type(exc).__name__)
+            raise
+        finally:
+            if journal:
+                journal.db.close()
+
+    async def _run_driver(self, action: str, payload: dict, authorization_probe=None,
+                          progress_callback=None, submitted=None) -> dict:
         payload = dict(payload)
         telegram = payload.pop("_telegram", {}) or {}
         if settings.account_driver_url == "fixture://local":
@@ -85,6 +133,8 @@ class AccountClient:
             if not isinstance(data, dict) or not data.get("status") or not data.get("job_id"):
                 raise RuntimeError(f"账号驱动 {action} 响应格式错误")
             job_id = data["job_id"]
+            if submitted is not None:
+                submitted(job_id)
             queue_deadline = time.monotonic() + settings.account_driver_queue_timeout
             execution_deadline = None
             handled_authorizations = set()

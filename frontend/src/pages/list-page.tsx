@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { Copy, Eye, ExternalLink } from "lucide-react"
+import { AccountFailure } from "@/components/account-failure"
 import { ShareSettings } from "@/components/share-settings"
 import { RestartTask } from "@/components/restart-task"
 import { toast } from "sonner"
@@ -23,6 +24,7 @@ const configs: Record<string, { title: string; description: string; columns: Col
     { key: "id", label: "ID", mobile: true }, { key: "username", label: "Apple 账号", mobile: true },
     { key: "remark", label: "备注", mobile: true }, { key: "enable", label: "启用", mobile: true, render: statusNode },
     { key: "task_status", label: "任务状态", mobile: true, render: statusNode }, { key: "message", label: "最新消息", mobile: true },
+    { key: "failure", label: "失败原因", mobile: true },
     { key: "last_check", label: "上次检查" },
   ]},
   tasks: { title: "自动化任务", description: "查看任务状态、调度时间并重新启动异常任务。", columns: [
@@ -147,7 +149,7 @@ export function ListPage({ kind, admin = false }: { kind: keyof typeof configs; 
   const allPageSelected=pageIds.length>0&&pageIds.every(id=>selected.includes(id))
   const togglePage=(checked:boolean)=>setSelected(prev=>checked?[...new Set([...prev,...pageIds])]:prev.filter(id=>!pageIds.includes(id)))
   const selectColumn: Column = { key: "__select", label: "选择", render: (_v: unknown, row: Entity) => <Checkbox aria-label="选择分享链接" checked={selected.includes(row.id!)} onCheckedChange={(checked) => toggleSelect(row.id!, Boolean(checked))} /> }
-  const columns: Column[] = kind==="accounts"?config.columns.map(c=>c.key==="username"?{...c,render:(_v:unknown,row:Entity)=><CopyAccountInfo row={row} admin={admin}/>} : c.key==="enable"?{...c,render:(_v:unknown,row:Entity)=><Switch aria-label={row.enable?"停用账号":"启用账号"} title={row.enable?"停用账号":"启用账号"} disabled={toggleEnable.isPending} checked={Boolean(row.enable)} onCheckedChange={(checked)=>toggleEnable.mutate({id:row.id!,enable:Boolean(checked)})}/>}:c):kind==="shares"?[selectColumn,{key:"enabled",label:"开启分享",render:(_v:unknown,row:Entity)=><Switch aria-label={`分享 ${row.id} 开启状态`} checked={row.enabled===undefined?true:Boolean(row.enabled)} disabled={shareEnabled.isPending} onCheckedChange={enabled=>shareEnabled.mutate({ids:[row.id!],enabled})}/>},...config.columns]:config.columns
+  const columns: Column[] = kind==="accounts"?config.columns.map(c=>c.key==="failure"?{...c,render:(_v:unknown,row:Entity)=><AccountFailure row={row} admin={admin}/>} : c.key==="username"?{...c,render:(_v:unknown,row:Entity)=><CopyAccountInfo row={row} admin={admin}/>} : c.key==="enable"?{...c,render:(_v:unknown,row:Entity)=><Switch aria-label={row.enable?"停用账号":"启用账号"} title={row.enable?"停用账号":"启用账号"} disabled={toggleEnable.isPending} checked={Boolean(row.enable)} onCheckedChange={(checked)=>toggleEnable.mutate({id:row.id!,enable:Boolean(checked)})}/>}:c):kind==="shares"?[selectColumn,{key:"enabled",label:"开启分享",render:(_v:unknown,row:Entity)=><Switch aria-label={`分享 ${row.id} 开启状态`} checked={row.enabled===undefined?true:Boolean(row.enabled)} disabled={shareEnabled.isPending} onCheckedChange={enabled=>shareEnabled.mutate({ids:[row.id!],enabled})}/>},...config.columns]:config.columns
   if (query.isLoading) return <PageSkeleton />
   if (query.error) return <ErrorState error={query.error} retry={() => query.refetch()} />
   const pages=query.data?.meta.total_pages??query.data?.meta.last_page??1

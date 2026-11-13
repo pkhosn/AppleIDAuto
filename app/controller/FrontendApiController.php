@@ -303,6 +303,34 @@ class FrontendApiController extends BaseController
         return $result['status'] ? $this->ok($result['data'] ?? []) : $this->fail('调度状态暂不可用', 503);
     }
 
+    public function accountFailure($id): Json
+    {
+        $account = (new Account())->fetch((int)$id);
+        if (!$account) return $this->fail('账号不存在', 404);
+        if (!$this->adminScope() && (int)$account->owner !== (int)$this->user()['id']) return $this->fail('无权访问', 403);
+        $result = $this->app->backendService->setCurl((string)env('backend.api_url'), (string)env('backend.token'), 'failureDetails', (int)$id);
+        $data = !empty($result['status']) ? ($result['data'] ?? []) : [];
+        $data['message'] = (string)($data['message'] ?? '') ?: (string)($account->task_message ?: $account->message);
+        $data['failed_at'] = (string)($data['failed_at'] ?? '') ?: (string)$account->last_check;
+        $data['images'] = is_array($data['images'] ?? null) ? $data['images'] : [];
+        if (empty($result['status'])) $data['warning'] = '截图服务暂不可用，当前显示已保存的失败信息';
+        return $this->ok($data)->header(['Cache-Control' => 'private, no-store']);
+    }
+
+    public function accountFailureImage($id)
+    {
+        $account = (new Account())->fetch((int)$id);
+        if (!$account) return $this->fail('账号不存在', 404);
+        if (!$this->adminScope() && (int)$account->owner !== (int)$this->user()['id']) return $this->fail('无权访问', 403);
+        $name = (string)$this->request->get('name', '');
+        if (!preg_match('/^[0-9a-f-]{36}(?:-[A-Za-z0-9_-]{1,140})?\.png$/D', $name)) return $this->fail('截图不存在或已清理', 404);
+        $result = $this->app->backendService->setCurl((string)env('backend.api_url'), (string)env('backend.token'), 'failureImage', (int)$id, ['name' => $name]);
+        $image = !empty($result['status']) ? base64_decode((string)($result['data']['image'] ?? ''), true) : false;
+        if (!$image || strlen($image) > 5 * 1024 * 1024 || substr($image, 0, 8) !== "\x89PNG\r\n\x1a\n") return $this->fail('截图不存在或已清理', 404);
+        return response($image, 200, ['Content-Type' => 'image/png', 'Cache-Control' => 'private, no-store',
+            'X-Content-Type-Options' => 'nosniff', 'Cross-Origin-Resource-Policy' => 'same-origin']);
+    }
+
     public function saveAccount($id = 0): Json
     {
         $id = (int)$id; $admin = $this->adminScope(); $currentUser = $this->user();

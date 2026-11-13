@@ -308,7 +308,7 @@ class AccountExecutor:
     @staticmethod
     def _payload(task_info: dict) -> dict:
         fields = (
-            "username", "password", "dob", "q1", "q2", "q3", "a1", "a2", "a3",
+            "username", "password", "dob", "q1", "q2", "q3", "a1", "a2", "a3", "_account_id",
             "webdriver", "proxy_id", "proxy_protocol", "proxy_content", "fixture_state",
         )
         return {key: task_info[key] for key in fields if task_info.get(key) not in (None, "")}

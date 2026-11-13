@@ -27,7 +27,7 @@ class PanelClient:
             data = response.json()
             if data.get("status") is not True or not isinstance(data.get("data"), dict):
                 raise RuntimeError(data.get("msg", "管理站返回数据无效"))
-            return data["data"]
+            return {**data["data"], "_account_id": account_id}
 
     async def automation_schedules(self) -> list[dict]:
         return await self._get_list('get_automation_schedules')

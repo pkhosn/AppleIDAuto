@@ -54,6 +54,8 @@ Route::group('frontend-api/v1', function () {
     Route::post('accounts/:id/enable', 'frontendApi/enableAccount');
     Route::get('automation-defaults', 'frontendApi/automationDefaults');
     Route::get('accounts/:id/schedule', 'frontendApi/accountSchedule')->completeMatch();
+    Route::get('accounts/:id/failure', 'frontendApi/accountFailure')->completeMatch();
+    Route::get('accounts/:id/failure-image', 'frontendApi/accountFailureImage')->completeMatch();
     Route::get('tasks', 'frontendApi/tasks');
     Route::post('tasks/:id/restart', 'frontendApi/restartTask');
     Route::get('records', 'frontendApi/records');

@@ -17,6 +17,7 @@ services:
       retries: 12
     volumes:
       - automation-data:/data
+      - driver-artifacts:/data/driver-artifacts:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     depends_on:

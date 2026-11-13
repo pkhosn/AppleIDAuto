@@ -145,6 +145,28 @@ async def schedule_status(payload: TaskRequest, token: str | None = Header(defau
             'active_run': store.active_run(payload.id), 'runs': store.recent_runs(payload.id, 10)}}
 
 
+class FailureImageRequest(TaskRequest):
+    name: str = Field(min_length=1, max_length=180)
+
+
+@router.post('/failureDetails')
+async def account_failure_details(payload: TaskRequest, token: str | None = Header(default=None)):
+    auth(token)
+    from .failure_evidence import failure_details
+    return {'status': True, 'data': failure_details(store, payload.id, settings.driver_artifact_dir)}
+
+
+@router.post('/failureImage')
+async def account_failure_image(payload: FailureImageRequest, token: str | None = Header(default=None)):
+    auth(token)
+    import base64
+    from .failure_evidence import read_account_image
+    data = read_account_image(store, payload.id, settings.driver_artifact_dir, payload.name)
+    if data is None:
+        raise HTTPException(status_code=404, detail='screenshot_unavailable')
+    return {'status': True, 'data': {'image': base64.b64encode(data).decode('ascii')}}
+
+
 @router.post("/removeTask")
 async def remove(payload: TaskRequest, token: str | None = Header(default=None)):
     auth(token)
