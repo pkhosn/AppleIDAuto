@@ -65,7 +65,11 @@ def classify_login_state(visible_text: str, current_url: str = "", has_account_n
         "cannot verify your identity", "无法验证你的身份", "无法验证您的身份",
     )):
         return "identity_verification_failed"
-    if any(term in text for term in ("account has been locked", "account is locked", "账户已锁定", "账号已锁定")):
+    # Apple wraps the Chinese lock heading between 已 and 锁定. Body text
+    # preserves that line break; match normalized text rather than layout.
+    if any(term in compact_text for term in (
+        "accounthasbeenlocked", "accountislocked", "账户已锁定", "账号已锁定",
+    )):
         return "locked"
     # A real two-factor challenge always asks for a code.  Do not classify a
     # generic explanation of two-factor security as this state: Apple leaves
@@ -2480,7 +2484,13 @@ class AppleFlow:
         if state in {"unknown", "page_unready"} and self._is_page_unready(driver):
             state = self._recover_post_login_loading(driver, job_id)
         if state in {"unknown", "page_unready"}:
-            _, visible_text = self._login_snapshot(driver)
+            final_state, visible_text = self._login_snapshot(driver)
+            # A concrete terminal state may paint after the earlier render
+            # deadline. Prefer it over the stale unknown state before raising
+            # an unrendered-challenge error.
+            if final_state in self._ERROR_STATES:
+                self._capture_error_page(driver, job_id, final_state)
+                return final_state
             public_landing = self._is_blank_public_account_page(
                 visible_text, str(getattr(driver, "current_url", "") or ""),
             )

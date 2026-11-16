@@ -770,6 +770,20 @@ class CoreTest(unittest.TestCase):
         self.assertIn("authentication-challenge", source)
         self.assertIn('"url_path": continuation_path', source)
 
+    def test_locked_heading_ignores_rendered_line_breaks(self):
+        for text in (
+            "出于安全原因，此 Apple 账户已\n锁定。你必须解锁账户，才能登录。",
+            "出于安全原因，此 Apple 账户已\u00a0锁定。",
+            "此 Apple 账号已\n锁定。",
+            "This Apple Account has been\nlocked for security reasons.",
+            "This account is\nlocked.",
+        ):
+            with self.subTest(text=text):
+                self.assertEqual('locked', classify_login_state(text))
+        for text in ("你可以解锁账户", "Apple 账户安全", "了解账户锁定的原因"):
+            with self.subTest(text=text):
+                self.assertIsNone(classify_login_state(text))
+
     def test_unrendered_authentication_challenge_fails_closed(self):
         browser = Path(__file__).resolve().parents[1] / "app" / "browser.py"
         source = browser.read_text(encoding="utf-8")

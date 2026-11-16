@@ -67,6 +67,22 @@ class ApiTest(unittest.TestCase):
         flow._fill_recovery_passwords.assert_not_called()
         flow._click_exact_control_anywhere.assert_not_called()
 
+    def test_late_locked_page_overrides_unrendered_challenge(self):
+        flow = AppleFlow()
+        driver = Mock(current_url='https://account.apple.com/sign-in')
+        flow._stage = Mock()
+        flow._login_state = Mock(return_value='unknown')
+        flow._collect_performance_logs = Mock()
+        flow._is_page_unready = Mock(return_value=False)
+        flow._recover_blank_public_account_page = Mock(return_value='unknown')
+        flow._authentication_conflict_seen = Mock(return_value=False)
+        flow._login_snapshot = Mock(return_value=('locked', '此 Apple 账户已\n锁定。'))
+        flow._is_blank_public_account_page = Mock(return_value=True)
+        flow._capture_error_page = Mock()
+        self.assertEqual('locked', flow._sign_in(driver, {'username': 'fixture', 'password': 'fixture'}, 'job-fixture'))
+        flow._capture_error_page.assert_called_once_with(driver, 'job-fixture', 'locked')
+        flow._is_blank_public_account_page.assert_not_called()
+
     def test_health_counts_running_jobs_before_browser_session_creation(self):
         from types import SimpleNamespace
         with patch.object(manager, "jobs", {

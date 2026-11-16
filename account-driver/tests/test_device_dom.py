@@ -9,6 +9,21 @@ from app.browser import AppleFlow
 
 @unittest.skipUnless(os.getenv("DEVICE_DOM_SELENIUM_URL"), "requires an idle Selenium node")
 class DeviceDOMTest(unittest.TestCase):
+    def test_locked_heading_split_across_dom_nodes_is_recognized(self):
+        from selenium import webdriver
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless=new')
+        driver = webdriver.Remote(os.environ['DEVICE_DOM_SELENIUM_URL'], options=options)
+        try:
+            driver.get('data:text/html;charset=utf-8,' + quote(
+                '<h1>出于安全原因，此 Apple 账户已<br>锁定。</h1>'
+                '<p>你必须解锁账户，才能登录。</p><button>取消</button><button>解锁账户</button>'))
+            state, text = AppleFlow._login_snapshot(driver)
+            self.assertIn('锁定', text)
+            self.assertEqual('locked', state)
+        finally:
+            driver.quit()
+
     def test_email_reset_follows_unlock_forgot_link_without_submitting_current_password(self):
         from selenium import webdriver
         options = webdriver.ChromeOptions()
