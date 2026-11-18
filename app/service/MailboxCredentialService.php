@@ -39,7 +39,8 @@ class MailboxCredentialService extends Service
         if ($methods !== null) {
             $methods = is_array($methods) ? $methods : explode(',', (string)$methods);
             $input['enable_email_recovery'] = (int)(in_array('email_password', $methods, true)
-                || in_array('email_security', $methods, true));
+                || in_array('email_security', $methods, true)
+                || in_array('email_unlock', $methods, true));
         }
         return $this->mergeMailboxInput($input, $existingCipher);
     }

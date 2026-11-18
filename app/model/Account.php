@@ -217,7 +217,8 @@ class Account extends Model
         )));
         $data['recovery_methods'] = implode(',', $methods);
         $data['enable_email_recovery'] = (int)(in_array('email_password', $methods, true)
-            || in_array('email_security', $methods, true));
+            || in_array('email_security', $methods, true)
+                || in_array('email_unlock', $methods, true));
         return $data;
     }
 
@@ -232,7 +233,7 @@ class Account extends Model
 
     public static function allowedRecoveryMethods(): array
     {
-        return ['email_password', 'email_security', 'account_login'];
+        return ['email_password', 'email_security', 'account_login', 'email_unlock'];
     }
 
     public static function defaultRecoveryMethods(): array

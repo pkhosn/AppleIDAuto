@@ -80,8 +80,11 @@ class Worker:
                 if not ok and error_code == "two_factor" and run_info.get("enable_auto_disable_two_factor"):
                     ok, message, password, error_code = await self._auto_disable_two_factor(account_id, info)
                     profile_payload = None
-                elif not ok and error_code == "password_invalid" and self._email_recovery_available(run_info):
-                    ok, message, password, error_code = await self._auto_email_recovery(account_id, run_info)
+                elif (not ok and error_code in {"password_invalid", "locked"}
+                      and not run_info.get('_mutation_started')
+                      and self._email_recovery_available(run_info, "email_unlock" if error_code == "locked" else "email_password")):
+                    recovery_info = {**run_info, '_recovery_reason': error_code}
+                    ok, message, password, error_code = await self._auto_email_recovery(account_id, recovery_info)
                     profile_payload = None
             if escrow_path and run_info.get('_mutation_started') and not ok:
                 await self.panel.disable_account(info['username'])
@@ -203,11 +206,11 @@ class Worker:
         self.store.log(account_id, "two_factor", "failed", message)
         return False, message, None, code
 
-    def _email_recovery_available(self, info: dict) -> bool:
+    def _email_recovery_available(self, info: dict, method: str = "email_password") -> bool:
         """Whether a failed password login can be recovered through the owned mailbox."""
         methods = set(info.get("recovery_methods") or [])
         mailbox = info.get("email_recovery") if isinstance(info.get("email_recovery"), dict) else {}
-        return "email_password" in methods and bool(mailbox.get("configured"))
+        return method in methods and bool(mailbox.get("configured"))
 
     async def _auto_email_recovery(self, account_id: int, info: dict):
         """Freeze the account and reset the Apple password through the rescue mailbox.
@@ -217,11 +220,17 @@ class Worker:
         wrong-password account is never silently re-enabled.
         """
         username = str(info.get("username") or "")
+        reason = "账号安全锁定" if info.get('_recovery_reason') == 'locked' else "密码校验失败"
+        if info.get('_recovery_reason') == 'locked':
+            fresh = await self.panel.task_info(account_id)
+            if (not fresh.get('enable') or fresh.get('username') != username
+                    or not self._email_recovery_available(fresh, 'email_unlock')):
+                return False, "账号安全锁定，邮件解锁已关闭或邮箱配置不可用", None, "locked"
         try:
             await self.panel.disable_account(username)
         except Exception as exc:
             self.store.log(account_id, "email_recovery", "failed", f"自动找回密码前冻结失败: {type(exc).__name__}")
-            return False, "密码校验失败，且冻结账号失败，未自动找回密码", None, "email_recovery_freeze_failed"
+            return False, f"{reason}，且冻结账号失败，未自动找回密码", None, "email_recovery_freeze_failed"
         self.store.upsert(account_id, "running", "账号已冻结，正在通过救援邮箱找回密码（可能等待验证码或邮件）")
         try:
             result = await run_controlled_email_password_change(
@@ -230,12 +239,12 @@ class Worker:
             )
         except Exception as exc:
             self.store.log(account_id, "email_recovery", "failed", f"自动找回密码异常: {type(exc).__name__}")
-            return False, "密码校验失败，自动找回密码执行异常，账号已冻结", None, "auto_email_recovery_failed"
+            return False, f"{reason}，自动找回密码执行异常，账号已冻结", None, "auto_email_recovery_failed"
         if result.get("status") == "success":
             self.store.log(account_id, "email_recovery", "success", "已通过救援邮箱自动找回密码")
-            return True, "密码校验失败，已通过救援邮箱自动找回密码", None, None
+            return True, f"{reason}，已通过救援邮箱重设密码并确认登录正常", None, None
         code = str(result.get("error_code") or result.get("stage") or "auto_email_recovery_failed")
-        message = f"密码校验失败，自动找回密码未完成（{code}），账号已冻结"
+        message = f"{reason}，邮件恢复未完成（{code}），账号已冻结"
         self.store.log(account_id, "email_recovery", "failed", message)
         return False, message, None, code
 

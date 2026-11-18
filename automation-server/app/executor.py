@@ -47,7 +47,7 @@ class AccountExecutor:
         new_password = None
 
         if state == "locked":
-            return False, "账号已锁定，自动恢复已禁用", None, "locked", None
+            return False, "账号安全锁定，需要解锁", None, "locked", None
         if state == "two_factor":
             return False, "账号需要二步验证，自动恢复已禁用", None, "two_factor", None
         elif state == "password_invalid":
@@ -273,7 +273,7 @@ class AccountExecutor:
         state = str(result.get('state') or 'unknown')
         if state != 'normal':
             codes = {
-                'locked': ('账号已锁定，自动恢复已禁用', 'locked'),
+                'locked': ('账号安全锁定，需要解锁', 'locked'),
                 'two_factor': ('账号需要二步验证，自动恢复已禁用', 'two_factor'),
                 'password_invalid': ('账号密码校验失败', 'password_invalid'),
                 'authentication_challenge_unrendered': ('Apple 登录认证未建立，安全挑战页面未显示', state),

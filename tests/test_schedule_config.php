@@ -214,7 +214,7 @@ try {
         // Full mailbox save must refill on the next edit. A subsequent partial
         // account save must retain every mailbox field and its encrypted secret.
         $mailboxPayload = [
-            'recovery_methods' => ['email_password', 'email_security'],
+            'recovery_methods' => ['email_unlock'],
             'recovery_email' => 'rescue-fixture@example.test',
             'mailbox_host' => 'imap.example.test', 'mailbox_port' => 993,
             'mailbox_username' => 'rescue-fixture', 'mailbox_password' => 'MailboxFixtureOnly!42',
@@ -223,6 +223,7 @@ try {
         $mailboxResponse = controller($mailboxPayload)->saveAccount($fixtureId);
         check($mailboxResponse->getCode() === 200, 'mailbox save accepted: ' . (string)$mailboxResponse->getContent());
         $mailboxSaved = Db::name('account')->where('id', $fixtureId)->find();
+        check($mailboxSaved['recovery_methods'] === 'email_unlock' && (bool)$mailboxSaved['enable_email_recovery'], 'standalone email unlock permission persists and enables mailbox');
         check($mailboxSaved['recovery_email'] === $mailboxPayload['recovery_email']
             && $mailboxSaved['mailbox_host'] === $mailboxPayload['mailbox_host']
             && $mailboxSaved['mailbox_username'] === $mailboxPayload['mailbox_username']

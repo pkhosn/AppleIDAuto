@@ -194,10 +194,14 @@ class FeatureRunner:
                     recovery_kind = 'two_factor'
                     outcomes['password_update'] = 'success'
                     f.finish(account_id, ['password_update'], 'success', '安全设置恢复已改密；重置定期改密周期')
-            elif not ok and code == 'password_invalid' and not run_info.get('_mutation_started') and w._email_recovery_available(run_info):
+            elif (not ok and code in {'password_invalid', 'locked'} and not run_info.get('_mutation_started')
+                  and w._email_recovery_available(run_info, 'email_unlock' if code == 'locked' else 'email_password')):
+                reason = code
+                method = 'email_unlock' if reason == 'locked' else 'email_password'
                 fresh = await w.panel.task_info(account_id)
-                if fresh.get('enable') and w._email_recovery_available(fresh):
-                    ok, message, password, code = await w._auto_email_recovery(account_id, {**run_info, **fresh})
+                if fresh.get('enable') and w._email_recovery_available(fresh, method):
+                    ok, message, password, code = await w._auto_email_recovery(
+                        account_id, {**run_info, **fresh, '_recovery_reason': reason})
                 recovered = ok
                 if recovered:
                     recovery_kind = 'email_password'

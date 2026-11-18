@@ -450,6 +450,14 @@ class FeatureRunnerTest(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(['check'], [x[0] for x in self.actions])
         self.assertNotIn('profile_restore', self.actions[0][1])
 
+    async def test_locked_account_uses_only_unlock_permission(self):
+        self.client.run = AsyncMock(return_value={'status': True, 'state': 'locked'})
+        self.w._email_recovery_available.side_effect = lambda info, method='email_password': method == 'email_unlock'
+        await self.runner.run(1, self.info)
+        self.w._auto_email_recovery.assert_awaited_once()
+        self.assertEqual('locked', self.w._auto_email_recovery.call_args.args[1]['_recovery_reason'])
+        self.assertEqual(1, self.client.run.await_count)
+
     async def test_email_recovery_resets_password_timer_without_duplicate(self):
         self.client.run = AsyncMock(return_value={'status': True, 'state': 'password_invalid'})
         await self.runner.run(1, self.info)

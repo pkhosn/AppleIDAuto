@@ -198,3 +198,56 @@ class LegacyEmailRecoveryTriggerTest(unittest.IsolatedAsyncioTestCase):
                     worker.panel.report.assert_awaited_once_with('fixture@example.test', False, code, None, profile=None)
                     self.assertEqual('failed', store.get(1)['status'])
                 store.db.close()
+
+
+class LockedEmailRecoveryTest(unittest.IsolatedAsyncioTestCase):
+    async def test_unlock_requires_separate_permission_and_valid_mailbox(self):
+        import tempfile
+        from pathlib import Path
+        from app.models import TaskStore
+        for methods, configured in [(['email_password'], True), (['email_unlock'], False), (['email_unlock'], True)]:
+            with self.subTest(methods=methods, configured=configured), tempfile.TemporaryDirectory() as tmp:
+                worker = Worker(TaskStore(str(Path(tmp) / 'tasks.sqlite3')), MagicMock())
+                info = {'username': 'fixture@example.test', 'enable': True, 'recovery_methods': methods,
+                        'email_recovery': {'configured': configured}}
+                worker.panel.task_info = AsyncMock(return_value=info)
+                worker.panel.report = AsyncMock()
+                worker.executor.run = AsyncMock(return_value=(False, 'locked', None, 'locked', None))
+                worker._auto_email_recovery = AsyncMock(return_value=(True, 'unlocked', None, None))
+                with (patch('app.worker.settings', replace(settings, database_path=str(Path(tmp) / 'tasks.sqlite3'))),
+                      patch('app.worker.notify_account_event', AsyncMock(return_value='not_configured'))):
+                    await worker._run_locked(1)
+                if methods == ['email_unlock'] and configured:
+                    worker._auto_email_recovery.assert_awaited_once()
+                    self.assertEqual('locked', worker._auto_email_recovery.call_args.args[1]['_recovery_reason'])
+                else:
+                    worker._auto_email_recovery.assert_not_awaited()
+                worker.store.db.close()
+
+    async def test_lock_recovery_reports_failure_reason_and_preserves_frozen_state(self):
+        worker = Worker(MagicMock(), MagicMock())
+        info = {'username': 'fixture@example.test', 'enable': True, 'recovery_methods': ['email_unlock'],
+                'email_recovery': {'configured': True}, '_recovery_reason': 'locked'}
+        worker.panel.task_info = AsyncMock(return_value=info)
+        worker.panel.disable_account = AsyncMock()
+        with patch('app.worker.run_controlled_email_password_change', AsyncMock(return_value={
+            'status': 'failed', 'error_code': 'recovery_email_timeout', 'stage': 'mailbox_wait',
+        })):
+            ok, message, password, code = await worker._auto_email_recovery(1, info)
+        self.assertFalse(ok)
+        self.assertIn('账号安全锁定', message)
+        self.assertNotIn('密码校验失败', message)
+        self.assertEqual('recovery_email_timeout', code)
+        worker.panel.disable_account.assert_awaited_once()
+
+    async def test_revoked_unlock_permission_stops_before_freezing(self):
+        worker = Worker(MagicMock(), MagicMock())
+        info = {'username': 'fixture@example.test', 'enable': True, 'recovery_methods': ['email_unlock'],
+                'email_recovery': {'configured': True}, '_recovery_reason': 'locked'}
+        worker.panel.task_info = AsyncMock(return_value={**info, 'recovery_methods': []})
+        worker.panel.disable_account = AsyncMock()
+        with patch('app.worker.run_controlled_email_password_change', AsyncMock()) as recover:
+            result = await worker._auto_email_recovery(1, info)
+        self.assertFalse(result[0])
+        recover.assert_not_awaited()
+        worker.panel.disable_account.assert_not_awaited()

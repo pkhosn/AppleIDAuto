@@ -132,7 +132,7 @@ const accountDefaults: AccountValues = {
   profile_observed: {},
 }
 
-const EMAIL_RECOVERY_METHODS = ["email_password", "email_security"]
+const EMAIL_RECOVERY_METHODS = ["email_password", "email_security", "email_unlock"]
 
 export function AccountEditor({ row, admin, onSaved }: { row?: Entity; admin: boolean; onSaved: () => void }) {
   const [open, setOpen] = useState(false)
@@ -312,6 +312,7 @@ export function AccountEditor({ row, admin, onSaved }: { row?: Entity; admin: bo
                 <div className="grid gap-2 rounded-lg border p-3 sm:grid-cols-3">
                   {[
                     ["email_password", "邮件修改密码"],
+                    ["email_unlock", "邮件解锁账号（会重设密码）"],
                     ["email_security", "邮件解除双重认证"],
                     ["account_login", "登录账号处理"],
                   ].map(([key, label]) => (
