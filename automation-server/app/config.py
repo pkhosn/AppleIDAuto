@@ -2,11 +2,6 @@ import os
 from dataclasses import dataclass
 
 
-AUTHENTICATION_COOLDOWN_CODES = frozenset({
-    "locked", "password_invalid", "security_answer_invalid", "identity_verification_failed",
-})
-
-
 def _technical_retry_delays() -> tuple[int, ...]:
     values = []
     for item in os.getenv("TECHNICAL_RETRY_DELAYS", "30,120,300").split(","):
@@ -37,7 +32,6 @@ class Settings:
     worker_concurrency: int = max(int(os.getenv("WORKER_CONCURRENCY", "3")), 1)
     account_lock_ttl: int = max(int(os.getenv("ACCOUNT_LOCK_TTL", "600")), 30)
     proxy_health_concurrency: int = max(int(os.getenv("PROXY_HEALTH_CONCURRENCY", "10")), 1)
-    authentication_cooldown_seconds: int = max(int(os.getenv("AUTHENTICATION_COOLDOWN_SECONDS", "14400")), 0)
     proxy_retry_seconds: int = max(int(os.getenv("PROXY_RETRY_SECONDS", "300")), 60)
     proxy_check_url: str = os.getenv("PROXY_CHECK_URL", "https://api.ipify.org?format=json")
     proxy_target_url: str = os.getenv("PROXY_TARGET_URL", "https://account.apple.com/")

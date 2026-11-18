@@ -1,7 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from .config import AUTHENTICATION_COOLDOWN_CODES, settings
+from .config import settings
 from .executor import AccountExecutor
 from .models import TaskStore
 from .panel_client import PanelClient
@@ -118,8 +118,6 @@ class Worker:
             if escrow_path and (ok or not run_info.get('_mutation_started')):
                 escrow_path.unlink(missing_ok=True)
             delay = settings.proxy_retry_seconds if error_code == "proxy_error" else interval * 60
-            if not ok and error_code in AUTHENTICATION_COOLDOWN_CODES:
-                delay = max(delay, settings.authentication_cooldown_seconds)
             next_run = (datetime.now(timezone.utc) + timedelta(seconds=delay)).isoformat()
             self.store.upsert(account_id, "success" if ok else "failed", message, next_run)
             self.store.set_retry_count(account_id, 0 if ok else 1)

@@ -137,18 +137,6 @@ class FeatureSchedule:
                 (now.isoformat(), result, message, due, reconcile_at, result, result, account_id, feature))
         self.db.commit()
 
-    def defer_authentication(self, account_id, seconds):
-        if seconds <= 0:
-            return
-        retry_at = (self.clock() + timedelta(seconds=seconds)).isoformat()
-        # All features use the same Apple credentials, even if their due times differ.
-        self.db.execute("""UPDATE feature_schedule
-            SET next_run_at=CASE WHEN next_run_at < ? THEN ? ELSE next_run_at END,
-                reconcile_at=CASE WHEN reconcile_at < ? THEN ? ELSE reconcile_at END
-            WHERE account_id=? AND enabled=1""",
-            (retry_at, retry_at, retry_at, retry_at, account_id))
-        self.db.commit()
-
     def finish_reconciliation(self, account_id, feature, result, message):
         row = self.rows(account_id)[feature]
         now = self.clock()
