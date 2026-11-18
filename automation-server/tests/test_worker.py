@@ -251,3 +251,61 @@ class LockedEmailRecoveryTest(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(result[0])
         recover.assert_not_awaited()
         worker.panel.disable_account.assert_not_awaited()
+
+
+class TwoFactorRecoveryRoutingTest(unittest.IsolatedAsyncioTestCase):
+    def worker(self):
+        worker = Worker(MagicMock(), MagicMock())
+        self.info = {'username': 'fixture@example.test', 'enable': False, 'enable_auto_disable_two_factor': True,
+                     'recovery_methods': ['email_password', 'email_security'], 'email_recovery': {'configured': True}}
+        worker.panel.disable_account = AsyncMock()
+        worker.panel.task_info = AsyncMock(return_value=self.info)
+        worker._auto_email_recovery = AsyncMock(return_value=(True, 'email recovered', None, None))
+        return worker
+
+    async def test_missing_or_expired_link_uses_one_authorized_email_recovery(self):
+        for code, stage, jobs in [('security_rollback_previous_attempt_unconfirmed', 'mailbox_lookup', []),
+                                  ('recovery_email_timeout', 'mailbox_wait', []),
+                                  ('security_rollback_link_expired', 'security_rollback', ['expired-job'])]:
+            with self.subTest(code=code):
+                worker = self.worker()
+                with patch('app.worker.run_controlled_security_rollback', AsyncMock(return_value={
+                    'status': 'failed', 'error_code': code, 'stage': stage, 'job_ids': jobs,
+                })):
+                    result = await worker._auto_disable_two_factor(1, self.info)
+                self.assertTrue(result[0])
+                worker._auto_email_recovery.assert_awaited_once()
+                self.assertEqual('two_factor', worker._auto_email_recovery.call_args.args[1]['_recovery_reason'])
+                self.assertEqual('email_password', self.info['_two_factor_recovery_path'])
+
+    async def test_uncertain_submission_never_starts_a_second_password_change(self):
+        worker = self.worker()
+        with patch('app.worker.run_controlled_security_rollback', AsyncMock(return_value={
+            'status': 'failed', 'error_code': 'recovery_email_timeout',
+            'stage': 'mailbox_confirmation', 'job_ids': ['submitted-job'],
+        })):
+            result = await worker._auto_disable_two_factor(1, self.info)
+        self.assertFalse(result[0])
+        worker._auto_email_recovery.assert_not_awaited()
+
+    async def test_revoked_password_permission_prevents_fallback(self):
+        worker = self.worker()
+        worker.panel.task_info.return_value = {**self.info, 'recovery_methods': ['email_security']}
+        with patch('app.worker.run_controlled_security_rollback', AsyncMock(return_value={
+            'status': 'failed', 'error_code': 'recovery_email_timeout', 'stage': 'mailbox_wait',
+        })):
+            result = await worker._auto_disable_two_factor(1, self.info)
+        self.assertFalse(result[0])
+        worker._auto_email_recovery.assert_not_awaited()
+
+    async def test_trusted_device_requirement_is_terminal_and_not_reported_as_password_failure(self):
+        worker = self.worker()
+        # Exercise the real email recovery method, with Apple's operation mocked.
+        del worker._auto_email_recovery
+        with patch('app.worker.run_controlled_email_password_change', AsyncMock(return_value={
+            'status': 'failed', 'error_code': 'two_factor', 'stage': 'email_request',
+        })):
+            result = await worker._auto_email_recovery(1, {**self.info, '_recovery_reason': 'two_factor'})
+        self.assertFalse(result[0])
+        self.assertEqual('two_factor_verification_required', result[3])
+        self.assertIn('受信任设备或电话号码', result[1])

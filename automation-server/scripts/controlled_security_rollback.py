@@ -48,7 +48,7 @@ async def run_controlled_security_rollback(
         mailbox = info.get("email_recovery") if isinstance(info.get("email_recovery"), dict) else {}
         if not mailbox.get("configured"):
             raise ControlledRecoveryError(str(mailbox.get("error_code") or "mailbox_config_invalid"), stage)
-        expected_account = account_username if mailbox.get("account_match_required") else None
+        expected_account = account_username
         # Explicitly disabled proxy nodes select direct mode, not a missing
         # proxy failure. Keep failing closed only when the panel says a proxy
         # is required but currently unavailable.

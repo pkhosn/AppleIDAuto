@@ -34,6 +34,8 @@ class FeatureRunner:
                 return f'密码恢复成功并已同步到账号资产页面：{base_message}'
             return '自动更新密码成功'
         if key == 'two_factor':
+            if recovery_kind == 'email_password':
+                return f'双重认证异常后已通过邮件恢复登录：{base_message}'
             return f'自动解除双重认证成功：{base_message}' if recovery_kind == 'two_factor' else '双重认证检测成功：未发现需要解除的双重认证'
         if key == 'profile_restore':
             if isinstance(profile, dict) and profile.get('summary'):
@@ -166,7 +168,7 @@ class FeatureRunner:
                 if ok:
                     # Security rollback also changes the password. Do not rotate it twice.
                     recovered = True
-                    recovery_kind = 'two_factor'
+                    recovery_kind = ('email_password' if run_info.get('_two_factor_recovery_path') == 'email_password' else 'two_factor')
                     outcomes['password_update'] = 'success'
                     f.finish(account_id, ['password_update'], 'success', '安全设置恢复已改密；重置定期改密周期')
                     run_info['enable_auto_update_password'] = False
@@ -191,7 +193,7 @@ class FeatureRunner:
                 outcomes['two_factor'] = 'success' if ok else 'failed'
                 if ok:
                     recovered = True
-                    recovery_kind = 'two_factor'
+                    recovery_kind = ('email_password' if run_info.get('_two_factor_recovery_path') == 'email_password' else 'two_factor')
                     outcomes['password_update'] = 'success'
                     f.finish(account_id, ['password_update'], 'success', '安全设置恢复已改密；重置定期改密周期')
             elif (not ok and code in {'password_invalid', 'locked'} and not run_info.get('_mutation_started')

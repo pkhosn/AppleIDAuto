@@ -166,7 +166,7 @@ class Worker:
         mailbox = info.get("email_recovery") if isinstance(info.get("email_recovery"), dict) else {}
         if not mailbox.get("configured"):
             return False
-        expected_account = str(info.get("username") or "") if mailbox.get("account_match_required") else None
+        expected_account = str(info.get("username") or "")
         not_before = datetime.now(timezone.utc) - timedelta(days=14)
         try:
             link = await BillionMailClient().find_link(
@@ -202,6 +202,17 @@ class Worker:
             self.store.log(account_id, "two_factor", "success", "检测到双重认证并已自动关闭")
             return True, "检测到双重认证并已自动关闭，账号已恢复", None, None
         code = str(result.get("error_code") or result.get("stage") or "auto_disable_two_factor_failed")
+        stage = str(result.get("stage") or "")
+        missing_link = (code in {"security_rollback_previous_attempt_unconfirmed", "recovery_email_timeout"}
+                        and stage in {"mailbox_lookup", "mailbox_wait"} and not result.get("job_ids"))
+        expired_link = code == "security_rollback_link_expired" and stage == "security_rollback"
+        if (missing_link or expired_link) and self._email_recovery_available(info):
+            fresh = await self.panel.task_info(account_id)
+            if (fresh.get('username') == username and fresh.get('enable_auto_disable_two_factor')
+                    and self._email_recovery_available(fresh)):
+                self.store.log(account_id, "two_factor", "pending", "无可用回退邮件，转入已授权的邮件重设密码流程")
+                info['_two_factor_recovery_path'] = 'email_password'
+                return await self._auto_email_recovery(account_id, {**fresh, '_recovery_reason': 'two_factor'})
         message = f"检测到双重认证，但自动关闭未完成（{code}），账号已冻结"
         self.store.log(account_id, "two_factor", "failed", message)
         return False, message, None, code
@@ -220,7 +231,8 @@ class Worker:
         wrong-password account is never silently re-enabled.
         """
         username = str(info.get("username") or "")
-        reason = "账号安全锁定" if info.get('_recovery_reason') == 'locked' else "密码校验失败"
+        reason = {'locked': '账号安全锁定', 'two_factor': '双重认证回退邮件不可用'}.get(
+            info.get('_recovery_reason'), '密码校验失败')
         if info.get('_recovery_reason') == 'locked':
             fresh = await self.panel.task_info(account_id)
             if (not fresh.get('enable') or fresh.get('username') != username
@@ -244,6 +256,15 @@ class Worker:
             self.store.log(account_id, "email_recovery", "success", "已通过救援邮箱自动找回密码")
             return True, f"{reason}，已通过救援邮箱重设密码并确认登录正常", None, None
         code = str(result.get("error_code") or result.get("stage") or "auto_email_recovery_failed")
+        if info.get('_recovery_reason') == 'two_factor' and code in {'two_factor', 'recovery_wait_required', 'recovery_email_unavailable'}:
+            requirements = {
+                'two_factor': 'Apple 仍要求受信任设备或电话号码验证，当前邮箱无法单独完成恢复',
+                'recovery_wait_required': 'Apple 要求通过官方账户恢复流程并等待审核',
+                'recovery_email_unavailable': 'Apple 未提供可用的邮箱重设入口',
+            }
+            message = requirements[code] + '，账号已停用，需完成官方验证'
+            self.store.log(account_id, 'email_recovery', 'failed', message)
+            return False, message, None, 'two_factor_verification_required'
         message = f"{reason}，邮件恢复未完成（{code}），账号已冻结"
         self.store.log(account_id, "email_recovery", "failed", message)
         return False, message, None, code

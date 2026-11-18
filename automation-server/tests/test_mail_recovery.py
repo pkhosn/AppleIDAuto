@@ -110,6 +110,7 @@ class FakeMailbox:
     async def find_link(self, config, expected_kind, not_before, expected_account=None,
                         exclude_message_ids=None):
         self.calls.append(f"lookup:{expected_kind}")
+        self.last_expected_account = expected_account
         if self.error:
             raise MailRecoveryError(self.error)
         if self.existing and "<fixture>" not in (exclude_message_ids or set()):
@@ -434,6 +435,7 @@ class MailRecoveryTest(unittest.TestCase):
         self.assertEqual("success", result["status"])
         self.assertEqual(["lookup:security_rollback", "security_rollback"], mailbox.calls)
         self.assertEqual(["complete_security_rollback"], account.actions)
+        self.assertEqual("fixture@example.test", mailbox.last_expected_account)
         self.assertNotEqual("CURRENT_PASSWORD", panel.info["password"])
 
     def test_security_rollback_allows_explicit_direct_mode(self):
