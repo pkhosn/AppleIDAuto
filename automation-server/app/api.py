@@ -2,6 +2,7 @@ import asyncio
 import secrets
 import uuid
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel, Field
@@ -294,10 +295,35 @@ async def _run_locked_manual_recovery(run_id, account_id, kind, resume_existing_
     refresh = asyncio.create_task(renew())
     try:
         await _run_manual_recovery(run_id, account_id, kind, resume_existing_link)
+        if manual_recovery_runs.get(run_id, {}).get('status') == 'success':
+            await _schedule_verified_recovery(account_id)
     finally:
         refresh.cancel()
         await asyncio.gather(refresh, return_exceptions=True)
         await queue.release_lock(account_id, lock_token)
+
+
+async def _schedule_verified_recovery(account_id):
+    # finalize_recovery enables scheduling while this job still owns the lock.
+    # A worker may already have consumed and skipped that queued item. Persist
+    # the next run after the completed fresh login instead of leaving it pending.
+    info = await PanelClient().task_info(account_id)
+    await queue.remove(account_id)
+    if not info.get('enable'):
+        store.upsert(account_id, 'disabled', '恢复完成，账号已停用')
+        return
+    message = '邮件恢复完成：新密码已同步并通过重新登录核验'
+    if info.get('schedule', {}).get('active'):
+        features = FeatureSchedule(store)
+        features.sync(account_id, info['schedule'], True)
+        verified = [key for key in ('password_check', 'two_factor') if features.rows(account_id)[key]['enabled']]
+        features.finish(account_id, verified, 'success', message)
+        next_run = features.next_run(account_id)
+    else:
+        next_run = (datetime.now(timezone.utc) + timedelta(minutes=max(int(info.get('check_interval', 30)), 1))).isoformat()
+    store.upsert(account_id, 'success', message, next_run)
+    store.set_retry_count(account_id, 0)
+    await PanelClient().report(info['username'], True, message)
 
 
 @router.post("/startEmailPasswordRecovery", status_code=202)

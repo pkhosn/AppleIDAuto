@@ -28,6 +28,38 @@ class ManualRecoveryApiTest(unittest.TestCase):
         api.manual_recovery_runs.clear()
         api.manual_recovery_accounts.clear()
 
+    def test_completed_manual_recovery_schedules_next_check_after_queue_item_was_consumed(self):
+        from types import SimpleNamespace
+        from datetime import datetime, timezone
+        with tempfile.TemporaryDirectory() as directory:
+            store = TaskStore(str(Path(directory) / 'state.sqlite3'))
+            store.upsert(1, 'pending', 'queued during finalization')
+            queue = SimpleNamespace(remove=AsyncMock())
+            panel = SimpleNamespace(task_info=AsyncMock(return_value={
+                'username': 'fixture@example.test', 'enable': True, 'check_interval': 30,
+            }), report=AsyncMock())
+            with patch.object(api, 'store', store), patch.object(api, 'queue', queue), patch.object(api, 'PanelClient', return_value=panel):
+                asyncio.run(api._schedule_verified_recovery(1))
+            row = store.get(1)
+            self.assertEqual('success', row['status'])
+            self.assertEqual(0, row['retry_count'])
+            self.assertGreater(datetime.fromisoformat(row['next_run_at']), datetime.now(timezone.utc))
+            queue.remove.assert_awaited_once_with(1)
+            panel.report.assert_awaited_once()
+            store.db.close()
+
+    def test_completed_recovery_does_not_reenable_a_disabled_account(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory() as directory:
+            store = TaskStore(str(Path(directory) / 'state.sqlite3'))
+            panel = SimpleNamespace(task_info=AsyncMock(return_value={'enable': False}), report=AsyncMock())
+            with patch.object(api, 'store', store), patch.object(api, 'queue', SimpleNamespace(remove=AsyncMock())), patch.object(api, 'PanelClient', return_value=panel):
+                asyncio.run(api._schedule_verified_recovery(1))
+            self.assertEqual('disabled', store.get(1)['status'])
+            self.assertIsNone(store.get(1)['next_run_at'])
+            panel.report.assert_not_awaited()
+            store.db.close()
+
     def test_freezing_running_task_preserves_execution_until_final_result(self):
         with tempfile.TemporaryDirectory() as directory:
             store = TaskStore(str(Path(directory) / 'state.sqlite3'))
