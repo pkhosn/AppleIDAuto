@@ -22,6 +22,29 @@ class FakeClient:
 
 
 class AccountExecutorTest(unittest.TestCase):
+    def test_reused_session_reports_session_health_without_password_claim(self):
+        client = FakeClient()
+        client.run = AsyncMock(return_value={'status': True, 'state': 'normal', 'session_reused': True})
+        info = {'username': 'fixture@example.test', 'password': 'fixture', 'enable': True,
+                'check_password_correct': True, '_feature_outcomes': {}, '_feature_messages': {}}
+        ok, message, password, code, profile = asyncio.run(AccountExecutor(client).run(info))
+        self.assertTrue(ok)
+        self.assertIn('本次未重新校验密码', message)
+        self.assertNotIn('密码正确性检测成功', message)
+        self.assertIn('本次未重新校验密码', info['_feature_messages']['password_check'])
+
+    def test_workflow_keeps_session_reuse_message(self):
+        class SessionClient(FakeClient):
+            async def run_workflow(self, payload, **kwargs):
+                return {'status': True, 'state': 'normal',
+                        'step_results': {'password_check': {'status': 'success', 'session_reused': True}}}
+        client = SessionClient()
+        info = {'username': 'fixture@example.test', 'password': 'fixture', 'enable': True,
+                '_use_workflow': True, '_due_features': ['password_check'], '_feature_messages': {}}
+        ok, message, *_ = asyncio.run(AccountExecutor(client).run(info))
+        self.assertTrue(ok)
+        self.assertIn('本次未重新校验密码', message)
+
     def test_composite_workflow_is_one_driver_call_with_ordered_features(self):
         class WorkflowClient(FakeClient):
             async def run_workflow(self, payload, authorization_probe=None, progress_callback=None):

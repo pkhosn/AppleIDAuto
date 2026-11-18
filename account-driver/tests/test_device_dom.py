@@ -9,6 +9,54 @@ from app.browser import AppleFlow
 
 @unittest.skipUnless(os.getenv("DEVICE_DOM_SELENIUM_URL"), "requires an idle Selenium node")
 class DeviceDOMTest(unittest.TestCase):
+    def test_saved_browser_profile_retains_session_cookie_and_storage(self):
+        from dataclasses import replace
+        from uuid import uuid4
+        from app.config import settings
+        import json
+        import urllib.request
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        def wait_for_slot():
+            def idle(_):
+                status = json.load(urllib.request.urlopen(os.environ['DEVICE_DOM_SELENIUM_URL'].replace('/wd/hub', '') + '/status', timeout=3))
+                return not any(slot.get('session') for node in status['value']['nodes'] for slot in node['slots'])
+            WebDriverWait(None, 15).until(idle)
+
+        profile = '/tmp/appleidauto-session-test-' + uuid4().hex
+        cfg = replace(settings, selenium_url=os.environ['DEVICE_DOM_SELENIUM_URL'])
+        flow = AppleFlow()
+        flow._browser_profile = profile
+        with patch('app.browser.settings', cfg):
+            wait_for_slot()
+            driver = flow._new_driver()
+            try:
+                driver.get('http://localhost:4444/status')
+                WebDriverWait(driver, 10).until(lambda d: d.execute_script('return document.readyState') == 'complete')
+                driver.add_cookie({'name': 'session_fixture', 'value': 'fixture-session'})
+                driver.execute_script("localStorage.setItem('account_fixture', 'fixture@example.test')")
+            finally:
+                driver.quit()
+            wait_for_slot()
+            driver = flow._new_driver()
+            try:
+                driver.get('http://localhost:4444/status')
+                WebDriverWait(driver, 10).until(lambda d: d.execute_script('return document.readyState') == 'complete')
+                self.assertEqual('fixture-session', driver.get_cookie('session_fixture')['value'])
+                self.assertEqual('fixture@example.test', driver.execute_script("return localStorage.getItem('account_fixture')"))
+            finally:
+                driver.quit()
+            flow._browser_profile = profile + '-other'
+            wait_for_slot()
+            driver = flow._new_driver()
+            try:
+                driver.get('http://localhost:4444/status')
+                WebDriverWait(driver, 10).until(lambda d: d.execute_script('return document.readyState') == 'complete')
+                self.assertIsNone(driver.get_cookie('session_fixture'))
+                self.assertIsNone(driver.execute_script("return localStorage.getItem('account_fixture')"))
+            finally:
+                driver.quit()
+
     def test_locked_heading_split_across_dom_nodes_is_recognized(self):
         from selenium import webdriver
         options = webdriver.ChromeOptions()

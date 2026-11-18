@@ -20,6 +20,8 @@ def _ui_locale() -> str:
 class Settings:
     token: str = os.getenv("ACCOUNT_DRIVER_TOKEN", "change-me")
     selenium_url: str = os.getenv("SELENIUM_URL", "http://selenium:4444/wd/hub")
+    persistent_sessions: bool = os.getenv("PERSISTENT_BROWSER_SESSIONS", "false").lower() in {"1", "true", "yes"}
+    browser_profile_dir: str = os.getenv("BROWSER_PROFILE_DIR", "/home/seluser/.config/appleidauto-profiles")
     concurrency: int = max(int(os.getenv("DRIVER_CONCURRENCY", "1")), 1)
     job_ttl: int = max(int(os.getenv("DRIVER_JOB_TTL", "3600")), 60)
     action_timeout: int = max(int(os.getenv("DRIVER_ACTION_TIMEOUT", "300")), 30)

@@ -59,8 +59,12 @@ class AccountExecutor:
         elif state != "normal":
             return False, f"未知账号状态：{state}", None, state, None
 
+        session_message = "账号会话有效：已复用登录状态，本次未重新校验密码"
         if task_info.get("check_password_correct"):
-            messages.append("账号密码正确性检测成功：账号登录状态正常")
+            messages.append(session_message if checked.get("session_reused") else
+                            "账号密码正确性检测成功：账号登录状态正常")
+        elif checked.get("session_reused"):
+            messages.append(session_message)
         if task_info.get("enable_auto_disable_two_factor"):
             messages.append("双重认证检测成功：未发现需要解除的双重认证")
         if task_info.get("enable_auto_restore_profile"):
@@ -81,6 +85,8 @@ class AccountExecutor:
         feature_messages = task_info.get('_feature_messages')
         if isinstance(outcomes, dict):
             outcomes.update({'password_check': 'success', 'two_factor': 'success'})
+            if checked.get("session_reused") and isinstance(feature_messages, dict):
+                feature_messages['password_check'] = session_message
             if task_info.get('enable_auto_restore_profile'):
                 states = [str(item.get('status') or '') for item in (checked.get('profile_results') or {}).values()
                           if isinstance(item, dict)]
@@ -234,7 +240,8 @@ class AccountExecutor:
             elif feature == 'password_update' and status == 'success':
                 detail = '自动更新密码成功：新密码已同步到账号资产页面'
             elif feature == 'password_check' and status == 'success':
-                detail = '账号密码正确性检测成功：账号登录状态正常'
+                detail = ('账号会话有效：已复用登录状态，本次未重新校验密码'
+                          if step.get('session_reused') else '账号密码正确性检测成功：账号登录状态正常')
             elif feature == 'two_factor' and status == 'success':
                 detail = '双重认证检测成功：未发现需要解除的双重认证'
             elif feature == 'profile_restore' and not detail:

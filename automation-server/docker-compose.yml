@@ -32,6 +32,7 @@ services:
     environment:
       SELENIUM_URL: http://selenium:4444/wd/hub
       APPLE_UI_LOCALE: ${APPLE_UI_LOCALE:-zh-CN}
+      PERSISTENT_BROWSER_SESSIONS: ${PERSISTENT_BROWSER_SESSIONS:-true}
     logging:
       driver: "json-file"
       options:
@@ -52,6 +53,8 @@ services:
     restart: unless-stopped
   selenium:
     image: selenium/standalone-chromium:4.47.0-20260808
+    volumes:
+      - browser-profiles:/home/seluser/.config
     shm_size: 2gb
     logging:
       driver: "json-file"
@@ -89,3 +92,4 @@ volumes:
   automation-data:
   redis-data:
   driver-artifacts:
+  browser-profiles:

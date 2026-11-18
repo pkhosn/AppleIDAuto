@@ -25,6 +25,8 @@ class AccountClient:
         from .models import TaskStore
         payload = dict(payload)
         account_id = int(payload.pop('_account_id', 0) or 0)
+        if account_id > 0:
+            payload['session_account_id'] = account_id
         journal = None
         job_id = ''
 

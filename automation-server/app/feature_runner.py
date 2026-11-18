@@ -396,6 +396,7 @@ class FeatureRunner:
                     feature=feature, driver_job_id=str(job.get('job_id') or ''),
                 )
 
+            payload["force_password_login"] = True
             result = await w.executor.client.run_workflow(payload, progress_callback=progress)
             state = str(result.get('state') or 'unknown')
             reconciliation = result.get('reconciliation') if isinstance(result.get('reconciliation'), dict) else {}

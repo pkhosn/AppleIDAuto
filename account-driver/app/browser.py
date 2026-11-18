@@ -597,9 +597,12 @@ class AppleFlow:
         self.captcha_challenges = captcha_challenges
         # 资料还原失败的具体环节（未找到入口/未找到可选值），用于面板消息与诊断产物。
         self._profile_failure_notes: dict[str, str] = {}
+        self._browser_profile = None
+        self._session_reused = False
 
     def run(self, action: str, payload: dict, job_id: str) -> dict:
         bridge = None
+        self._browser_profile = self._session_profile(action, payload)
         try:
             bridge = ProxyBridge(payload.get("proxy_protocol"), payload.get("proxy_content"))
             proxy = bridge.start()
@@ -608,6 +611,7 @@ class AppleFlow:
             for attempt in range(attempts):
                 driver = None
                 try:
+                    self._session_reused = False
                     driver = self._new_driver(proxy)
                     context = payload.get('_job_context') or {}
                     if callable(context.get('session_opened')):
@@ -630,6 +634,8 @@ class AppleFlow:
                             if isinstance(item, dict))
                         if not uncertain:
                             context['progress']('result_confirmation', feature, {'status': 'success'})
+                    if self._browser_profile:
+                        result["session_reused"] = self._session_reused
                     return self._result(result, "login")
                 except FlowError as exc:
                     context = payload.get("_job_context") if isinstance(payload.get("_job_context"), dict) else {}
@@ -697,6 +703,22 @@ class AppleFlow:
         finally:
             if bridge:
                 bridge.close()
+
+    @staticmethod
+    def _session_profile(action: str, payload: dict) -> str | None:
+        if (not settings.persistent_sessions or payload.get("force_password_login")
+                or action not in {"check", "workflow", "delete_devices", "update_password"}
+                or not payload.get("username") or not payload.get("password")):
+            return None
+        # Names contain no credentials. Bind profiles to credentials and the
+        # configured upstream proxy, not the temporary local bridge port.
+        identity = json.dumps([
+            str(payload.get("session_account_id") or ""), str(payload["username"]).strip().lower(),
+            str(payload["password"]), str(payload.get("proxy_protocol") or ""),
+            str(payload.get("proxy_content") or ""),
+        ], ensure_ascii=False).encode()
+        key = hmac.new(settings.token.encode(), identity, hashlib.sha256).hexdigest()
+        return str(Path(settings.browser_profile_dir) / key)
 
     @staticmethod
     def _artifact_job_id(job_id: str, attempt: int, attempts: int) -> str:
@@ -783,6 +805,8 @@ class AppleFlow:
         # event can remain blocked after the visible shell is available. Let
         # get() return after dispatch and use bounded state machines below.
         options.page_load_strategy = "none"
+        if self._browser_profile:
+            options.add_argument(f"--user-data-dir={self._browser_profile}")
         options.set_capability("goog:loggingPrefs", {"browser": "ALL", "performance": "ALL"})
         for argument in ("--window-size=1440,1200", "--disable-dev-shm-usage", "--no-sandbox"):
             options.add_argument(argument)
@@ -791,6 +815,9 @@ class AppleFlow:
         # fallbacks because Apple can override locale for individual pages.
         options.add_argument(f"--lang={settings.ui_locale}")
         options.add_experimental_option("prefs", {
+            "session.restore_on_startup": 1,
+            "credentials_enable_service": False,
+            "profile.password_manager_enabled": False,
             "intl.accept_languages": f"{settings.ui_locale},zh,en-US,en",
             # account.apple.com embeds idmsa.apple.com. Both are Apple-owned,
             # but Chromium privacy experiments can still partition the
@@ -872,6 +899,8 @@ class AppleFlow:
                 "message": messages[state], "retryable": True,
             }
         result = {"status": True, "state": state, "message": messages.get(state, "未识别账号状态")}
+        if self._session_reused:
+            result.update(session_reused=True, message="账号会话有效：已复用登录状态，本次未重新校验密码")
         profile_config = payload.get("profile_restore")
         if state == "normal" and isinstance(profile_config, dict) and profile_config.get("enabled"):
             callback = (payload.get('_job_context') or {}).get('progress')
@@ -1761,7 +1790,7 @@ class AppleFlow:
         state = self._stage("login", lambda: self._sign_in(driver, payload, job_id), True)
         login_result = {
             "status": "success" if state == "normal" else "failed",
-            "stage": "login", "state": state,
+            "stage": "login", "state": state, "session_reused": self._session_reused,
         }
         for feature in ("two_factor", "password_check"):
             if feature in requested:
@@ -2416,10 +2445,54 @@ class AppleFlow:
                 pass
             return []
 
+    def _resume_session(self, driver, payload: dict) -> str | None:
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        self._get(driver, settings.account_url)
+        authenticated_page_seen = False
+
+        def settled(current):
+            nonlocal authenticated_page_seen
+            state, text = self._login_snapshot(current)
+            page = urlparse(str(current.current_url or ""))
+            authenticated_route = (page.scheme == "https" and page.hostname == "account.apple.com"
+                                   and page.path.rstrip('/') in {"/account/manage", "/account/home"})
+            if state == "normal" and authenticated_route:
+                # A profile alone is insufficient identity evidence. Require
+                # the expected account identifier on the authenticated page.
+                username = str(payload["username"]).strip().lower()
+                authenticated_page_seen = True
+                if username not in text.lower():
+                    return False
+                self._session_reused = True
+                return state
+            if state in self._ERROR_STATES and state not in {"unknown", "page_unready"}:
+                return state
+            # A ready sign-in form means the saved session has expired.
+            if self._visible_fields_anywhere(current, "input[type='password'], input[type='email'], input#account_name_text_field", 1):
+                return "expired"
+            return False
+
+        try:
+            state = WebDriverWait(driver, settings.render_timeout).until(settled)
+            return None if state == "expired" else state
+        except FlowError:
+            raise
+        except Exception:
+            if authenticated_page_seen:
+                raise FlowError("session_identity_unconfirmed", "已有登录会话的账号身份无法确认",
+                                stage="session", retryable=False)
+            return None
+
     def _sign_in(self, driver, payload: dict, job_id: str = "") -> str:
         from selenium.webdriver.common.by import By
         from selenium.webdriver.support.ui import WebDriverWait
 
+        self._session_reused = False
+        if self._browser_profile and not payload.get("force_password_login"):
+            state = self._stage("session", lambda: self._resume_session(driver, payload), True)
+            if state:
+                return state
         self._stage("login", lambda: self._get(driver, settings.sign_in_url), True)
         self._stage("login", lambda: self._switch_auth_frame(driver), True)
         self._stage("login", lambda: self._type_first(driver, self._account_selectors(), payload["username"]), True)

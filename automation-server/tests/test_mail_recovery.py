@@ -284,6 +284,7 @@ class MailRecoveryTest(unittest.TestCase):
             self.assertEqual("success", result["status"])
             self.assertTrue(panel.info["enable_delete_devices"])
             self.assertEqual(["request_email_reset", "complete_email_reset", "check"], account.actions)
+            self.assertTrue(account.payloads[-1]["force_password_login"])
             self.assertEqual(["lookup:password_reset", "password_reset"], mailbox.calls)
             self.assertNotIn(PASSWORD, repr(result))
             self.assertEqual([], list(Path(directory).glob("*.secret")))

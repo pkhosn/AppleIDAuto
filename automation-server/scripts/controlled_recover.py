@@ -129,6 +129,7 @@ def build_driver_payload(info: dict) -> dict:
     configured a bot.
     """
     payload = AccountExecutor._payload(info)
+    payload["force_password_login"] = True
     payload["_telegram"] = {
         "bot_token": str(info.get("tg_bot_token") or ""),
         "chat_id": str(info.get("tg_chat_id") or ""),
