@@ -278,6 +278,19 @@ class TwoFactorRecoveryRoutingTest(unittest.IsolatedAsyncioTestCase):
                 self.assertEqual('two_factor', worker._auto_email_recovery.call_args.args[1]['_recovery_reason'])
                 self.assertEqual('email_password', self.info['_two_factor_recovery_path'])
 
+    async def test_missing_mail_prefers_authorized_identity_recovery_before_email_reset(self):
+        worker = self.worker()
+        self.info['recovery_methods'].append('account_login')
+        with patch('app.worker.run_controlled_security_rollback', AsyncMock(side_effect=[
+            {'status': 'failed', 'error_code': 'security_rollback_previous_attempt_unconfirmed', 'stage': 'mailbox_lookup'},
+            {'status': 'success'},
+        ])) as recover:
+            result = await worker._auto_disable_two_factor(1, self.info)
+        self.assertTrue(result[0])
+        self.assertEqual(2, recover.await_count)
+        self.assertTrue(recover.call_args.kwargs['identity_recovery'])
+        worker._auto_email_recovery.assert_not_awaited()
+
     async def test_uncertain_submission_never_starts_a_second_password_change(self):
         worker = self.worker()
         with patch('app.worker.run_controlled_security_rollback', AsyncMock(return_value={

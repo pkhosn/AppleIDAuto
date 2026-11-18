@@ -30,6 +30,7 @@ async def run_controlled_security_rollback(
     maximum_link_age_days: int = 14,
     escrow_dir: Path | None = None,
     store=None,
+    identity_recovery: bool = False,
 ) -> dict:
     panel = panel or PanelClient()
     account_client = account_client or AccountClient()
@@ -46,7 +47,11 @@ async def run_controlled_security_rollback(
         if bool(info.get("enable")) or (not independent and bool(info.get("enable_auto_update_password"))):
             raise ControlledRecoveryError("account_not_frozen", stage)
         mailbox = info.get("email_recovery") if isinstance(info.get("email_recovery"), dict) else {}
-        if not mailbox.get("configured"):
+        if identity_recovery:
+            required = ("dob", "q1", "a1", "q2", "a2", "q3", "a3")
+            if "account_login" not in (info.get("recovery_methods") or []) or any(not info.get(key) for key in required):
+                raise ControlledRecoveryError("recovery_identity_missing", stage)
+        elif not mailbox.get("configured"):
             raise ControlledRecoveryError(str(mailbox.get("error_code") or "mailbox_config_invalid"), stage)
         expected_account = account_username
         # Explicitly disabled proxy nodes select direct mode, not a missing
@@ -60,45 +65,57 @@ async def run_controlled_security_rollback(
             escrow_dir or Path("/data/recovery-escrow"), account_id, generate_recovery_password,
         )
 
-        # Apple sends the rollback message when two-factor authentication is
-        # enabled; unlike password reset, there is no safe generic endpoint to
-        # request another one.  Prefer the existing authenticated message and
-        # only wait briefly for its delivery when it is not visible yet.
-        stage = "mailbox_lookup"
-        not_before = datetime.now(timezone.utc) - timedelta(days=max(maximum_link_age_days, 1))
-        # 已处理过的恢复邮件（一次性链接）不再复用：邮箱里的旧邮件会保留很久，
-        # 若不跳过，一轮成功关闭双重认证后，下一轮会再次命中同一封已失效邮件。
-        seen_ids = store.rollback_seen_message_ids(account_id) if store else set()
-        try:
-            rollback_link = await mailbox_client.find_link(
-                mailbox, "security_rollback", not_before, expected_account=expected_account,
-                exclude_message_ids=seen_ids,
-            )
-            if rollback_link is None and seen_ids:
-                previous = await mailbox_client.find_link(
+        if identity_recovery:
+            stage = "security_identity_recovery"
+            operation_started = datetime.now(timezone.utc)
+            result = await account_client.run("recover_security", {
+                **build_driver_payload(info), "new_password": new_password,
+            })
+            job_id = str(result.get("_job_id") or "")
+            if job_id:
+                job_ids.append(job_id)
+        else:
+            # Apple sends the rollback message when two-factor authentication is
+            # enabled; unlike password reset, there is no safe generic endpoint to
+            # request another one.  Prefer the existing authenticated message and
+            # only wait briefly for its delivery when it is not visible yet.
+            stage = "mailbox_lookup"
+            not_before = datetime.now(timezone.utc) - timedelta(days=max(maximum_link_age_days, 1))
+            # 已处理过的恢复邮件（一次性链接）不再复用：邮箱里的旧邮件会保留很久，
+            # 若不跳过，一轮成功关闭双重认证后，下一轮会再次命中同一封已失效邮件。
+            seen_ids = store.rollback_seen_message_ids(account_id) if store else set()
+            try:
+                rollback_link = await mailbox_client.find_link(
                     mailbox, "security_rollback", not_before, expected_account=expected_account,
+                    exclude_message_ids=seen_ids,
                 )
-                if previous and previous.message_id in seen_ids:
-                    raise ControlledRecoveryError("security_rollback_previous_attempt_unconfirmed", stage)
-            if rollback_link is None:
-                stage = "mailbox_wait"
-                rollback_link = await mailbox_client.wait_for_link(
-                    mailbox, "security_rollback", not_before, timeout_seconds=mailbox_wait_seconds,
-                    expected_account=expected_account, exclude_message_ids=seen_ids,
-                )
-        except MailRecoveryError as exc:
-            raise ControlledRecoveryError(exc.code, stage) from exc
+                if rollback_link is None and seen_ids:
+                    previous = await mailbox_client.find_link(
+                        mailbox, "security_rollback", not_before, expected_account=expected_account,
+                    )
+                    if previous and previous.message_id in seen_ids:
+                        raise ControlledRecoveryError("security_rollback_previous_attempt_unconfirmed", stage)
+                if rollback_link is None:
+                    stage = "mailbox_wait"
+                    rollback_link = await mailbox_client.wait_for_link(
+                        mailbox, "security_rollback", not_before, timeout_seconds=mailbox_wait_seconds,
+                        expected_account=expected_account, exclude_message_ids=seen_ids,
+                    )
+            except MailRecoveryError as exc:
+                raise ControlledRecoveryError(exc.code, stage) from exc
 
-        stage = "security_rollback"
-        operation_started = datetime.now(timezone.utc)
-        result = await account_client.run("complete_security_rollback", {
-            **build_driver_payload(info), "reset_url": rollback_link.url, "new_password": new_password,
-        })
-        job_id = str(result.get("_job_id") or "")
-        if job_id:
-            job_ids.append(job_id)
+            stage = "security_rollback"
+            operation_started = datetime.now(timezone.utc)
+            result = await account_client.run("complete_security_rollback", {
+                **build_driver_payload(info), "reset_url": rollback_link.url, "new_password": new_password,
+            })
+            job_id = str(result.get("_job_id") or "")
+            if job_id:
+                job_ids.append(job_id)
         driver_confirmed = bool(result.get("status") and result.get("security_rollback_confirmed") is True)
         driver_error = str(result.get("error_code") or "security_rollback_unconfirmed")
+        if identity_recovery and not driver_confirmed:
+            raise ControlledRecoveryError(driver_error, stage)
         rollback_may_have_been_submitted = (
             bool(result.get("password_submitted"))
             or driver_error in {"security_rollback_unconfirmed", "password_reset_unconfirmed"}
@@ -138,6 +155,14 @@ async def run_controlled_security_rollback(
         if refreshed.get("password") != new_password:
             raise ControlledRecoveryError("panel_writeback_unconfirmed", stage)
 
+        if identity_recovery:
+            stage = "fresh_check"
+            verified = await account_client.run("check", build_driver_payload(refreshed))
+            if verified.get("_job_id"):
+                job_ids.append(str(verified["_job_id"]))
+            if not verified.get("status") or verified.get("state") != "normal":
+                raise ControlledRecoveryError(str(verified.get("error_code") or verified.get("state") or "check_failed"), stage)
+
         stage = "finalize"
         await panel.finalize_recovery(account_id, hashlib.sha256(new_password.encode()).hexdigest())
         final_info = await panel.task_info(account_id)
@@ -145,7 +170,7 @@ async def run_controlled_security_rollback(
                 or (not independent and int(final_info.get("check_interval", 0)) != 30)):
             raise ControlledRecoveryError("final_state_unconfirmed", stage)
         escrow_path.unlink()
-        return safe_result("success", "complete", job_ids=job_ids, escrow_retained=False, change_path="security_rollback")
+        return safe_result("success", "complete", job_ids=job_ids, escrow_retained=False, change_path="security_identity" if identity_recovery else "security_rollback")
     except ControlledRecoveryError as exc:
         if account_username and hasattr(panel, "disable_account"):
             try:

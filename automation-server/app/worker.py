@@ -181,10 +181,9 @@ class Worker:
     async def _auto_disable_two_factor(self, account_id: int, info: dict):
         """Freeze the account and restore Apple's prior security settings.
 
-        Apple only keeps the two-factor enrollment-confirmation email in the
-        rescue mailbox for a limited window.  The rollback therefore fails
-        closed and leaves the account frozen when no usable link exists, so a
-        two-factor account is never silently re-enabled.
+        Prefer the matching enrollment email, then the authorized official
+        birthday/security-question route. Unconfirmed changes keep the account
+        frozen; only a confirmed recovery can restore scheduling.
         """
         username = str(info.get("username") or "")
         try:
@@ -206,6 +205,20 @@ class Worker:
         missing_link = (code in {"security_rollback_previous_attempt_unconfirmed", "recovery_email_timeout"}
                         and stage in {"mailbox_lookup", "mailbox_wait"} and not result.get("job_ids"))
         expired_link = code == "security_rollback_link_expired" and stage == "security_rollback"
+        if (missing_link or expired_link or (code == "mailbox_config_invalid" and stage == "preflight")) and "account_login" in (info.get('recovery_methods') or []):
+            fresh = await self.panel.task_info(account_id)
+            if (fresh.get('username') == username and fresh.get('enable_auto_disable_two_factor')
+                    and "account_login" in (fresh.get('recovery_methods') or [])):
+                self.store.upsert(account_id, 'running', '正在通过生日和密保验证关闭双重认证')
+                identity_result = await run_controlled_security_rollback(account_id, store=self.store, identity_recovery=True)
+                if identity_result.get('status') == 'success':
+                    self.store.log(account_id, 'two_factor', 'success', '已通过生日和密保验证关闭双重认证并核验新密码')
+                    return True, '已通过身份验证关闭双重认证，新密码已同步并通过重新登录核验', None, None
+                identity_code = str(identity_result.get('error_code') or 'security_identity_recovery_failed')
+                if identity_code != 'unknown_phone_recovery_unavailable':
+                    message = f'双重认证身份恢复未完成（{identity_code}），账号已冻结'
+                    self.store.log(account_id, 'two_factor', 'failed', message)
+                    return False, message, None, identity_code
         if (missing_link or expired_link) and self._email_recovery_available(info):
             fresh = await self.panel.task_info(account_id)
             if (fresh.get('username') == username and fresh.get('enable_auto_disable_two_factor')

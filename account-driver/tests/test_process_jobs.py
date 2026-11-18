@@ -8,7 +8,7 @@ import time
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from app.jobs import CaptchaChallengeManager, JobManager
+from app.jobs import CaptchaChallengeManager, Job, JobManager
 
 
 def interactive_job(action, payload, job_id):
@@ -55,6 +55,13 @@ def process_stopped(pid):
 
 
 class ProcessJobTest(unittest.IsolatedAsyncioTestCase):
+    def test_security_identity_timeout_preserves_password_uncertainty(self):
+        job = Job(id='fixture-security', action='recover_security')
+        result = JobManager._failure_result(job, 'recover_security', 'driver_timeout')
+        self.assertTrue(result['password_submitted'])
+        self.assertFalse(result['retryable'])
+        self.assertEqual('uncertain', result['step_results']['password_update']['status'])
+
     async def test_timeout_revokes_pending_authorization_and_captcha(self):
         for kind in ('authorize', 'captcha'):
             with self.subTest(kind=kind), tempfile.TemporaryDirectory() as directory:

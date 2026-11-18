@@ -55,12 +55,13 @@ async def health():
 @app.post("/{action}", status_code=202)
 async def submit(action: str, payload: dict, authorization: str | None = Header(default=None)):
     authorize(authorization)
-    if action not in {"workflow", "check", "recover", "update_password", "delete_devices", "request_email_reset", "complete_email_reset", "complete_security_rollback"}:
+    if action not in {"workflow", "check", "recover", "recover_security", "update_password", "delete_devices", "request_email_reset", "complete_email_reset", "complete_security_rollback"}:
         raise HTTPException(status_code=404, detail="unknown action")
     required = {
         "check": ("username", "password"),
         "workflow": ("username", "password", "run_id", "features"),
         "recover": ("username", "password", "dob", "q1", "a1", "q2", "a2", "q3", "a3"),
+        "recover_security": ("username", "dob", "q1", "a1", "q2", "a2", "q3", "a3", "new_password"),
         "update_password": ("username", "password"),
         "delete_devices": ("username", "password"),
         "request_email_reset": ("username",),

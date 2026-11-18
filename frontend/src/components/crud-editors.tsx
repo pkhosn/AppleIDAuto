@@ -314,7 +314,7 @@ export function AccountEditor({ row, admin, onSaved }: { row?: Entity; admin: bo
                     ["email_password", "邮件修改密码"],
                     ["email_unlock", "邮件解锁账号（会重设密码）"],
                     ["email_security", "邮件解除双重认证"],
-                    ["account_login", "登录账号处理"],
+                    ["account_login", "生日/密保恢复双重认证（会重设密码）"],
                   ].map(([key, label]) => (
                     <label key={key} className="flex items-center gap-2 text-sm">
                       <Checkbox checked={values.recovery_methods.includes(key)} onCheckedChange={(checked) => toggleMethod(key, Boolean(checked))} />

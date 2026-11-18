@@ -75,7 +75,7 @@ class FakeAccountClient:
         if action == "complete_email_reset":
             return {"status": True, "password": payload["new_password"], "password_change_confirmed": True,
                     "_job_id": f"job-{len(self.actions)}"}
-        if action == "complete_security_rollback":
+        if action in {"complete_security_rollback", "recover_security"}:
             return {"status": True, "security_rollback_confirmed": True,
                     "password": payload["new_password"], "password_change_confirmed": True,
                     "_job_id": f"job-{len(self.actions)}"}
@@ -426,6 +426,54 @@ class MailRecoveryTest(unittest.TestCase):
             self.assertEqual("recovery_email_timeout", result["error_code"])
             self.assertTrue(panel.disabled)
             self.assertEqual(1, len(list(Path(directory).glob("*.secret"))))
+
+    def test_identity_recovery_uses_official_phone_route_and_fresh_login(self):
+        panel, account, mailbox = FakePanel(), FakeAccountClient(), FakeMailbox()
+        panel.info.update({'recovery_methods': ['account_login'], 'dob': '01021970',
+                           'q1': 'one', 'a1': 'a', 'q2': 'two', 'a2': 'b', 'q3': 'three', 'a3': 'c'})
+        with tempfile.TemporaryDirectory() as directory:
+            result = asyncio.run(run_controlled_security_rollback(
+                1, panel=panel, account_client=account, mailbox_client=mailbox,
+                escrow_dir=Path(directory), identity_recovery=True))
+        self.assertEqual('success', result['status'])
+        self.assertEqual(['recover_security', 'check'], account.actions)
+        self.assertTrue(account.payloads[-1]['force_password_login'])
+        self.assertEqual([], mailbox.calls)
+
+    def test_identity_recovery_requires_account_permission_and_complete_answers(self):
+        panel, account = FakePanel(), FakeAccountClient()
+        with tempfile.TemporaryDirectory() as directory:
+            result = asyncio.run(run_controlled_security_rollback(
+                1, panel=panel, account_client=account, escrow_dir=Path(directory), identity_recovery=True))
+        self.assertEqual('recovery_identity_missing', result['error_code'])
+        self.assertEqual([], account.actions)
+
+    def test_identity_recovery_keeps_candidate_when_confirmation_or_login_fails(self):
+        for failed_action in ('recover_security', 'check'):
+            with self.subTest(failed_action=failed_action), tempfile.TemporaryDirectory() as directory:
+                panel, account, mailbox = FakePanel(), FakeAccountClient(), FakeMailbox()
+                panel.info.update({'recovery_methods': ['account_login'], 'dob': '01021970',
+                                   'q1': 'one', 'a1': 'a', 'q2': 'two', 'a2': 'b', 'q3': 'three', 'a3': 'c'})
+                original_run = account.run
+
+                async def run(action, payload):
+                    result = await original_run(action, payload)
+                    if action == failed_action:
+                        return {'status': False, 'error_code': 'fixture_unconfirmed', 'password_submitted': True}
+                    return result
+
+                account.run = run
+                result = asyncio.run(run_controlled_security_rollback(
+                    1, panel=panel, account_client=account, mailbox_client=mailbox,
+                    escrow_dir=Path(directory), identity_recovery=True))
+                self.assertEqual('failed', result['status'])
+                self.assertEqual('fixture_unconfirmed', result['error_code'])
+                self.assertTrue(panel.disabled)
+                self.assertTrue(result['escrow_retained'])
+                self.assertEqual(1, len(list(Path(directory).glob('*.secret'))))
+                self.assertEqual([], mailbox.calls)
+                if failed_action == 'recover_security':
+                    self.assertEqual(['recover_security'], account.actions)
 
     def test_security_rollback_requires_confirmed_link_and_fresh_login(self):
         panel, account, mailbox = FakePanel(), FakeAccountClient(), FakeMailbox(kind="security_rollback")

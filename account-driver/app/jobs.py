@@ -287,7 +287,7 @@ class JobManager:
         submitted = job.mutation_state == 'submitted'
         if action != 'workflow':
             feature = {'update_password': 'password_update', 'delete_devices': 'device_cleanup',
-                       'complete_email_reset': 'password_update',
+                       'complete_email_reset': 'password_update', 'recover_security': 'password_update',
                        'complete_security_rollback': 'password_update'}.get(action, feature)
             submitted = bool(feature) or submitted
         if submitted and feature:

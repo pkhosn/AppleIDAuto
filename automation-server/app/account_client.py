@@ -115,14 +115,14 @@ class AccountClient:
                     "stage": "device_list", "retryable": False, "password_submitted": False,
                 }
             result = {"status": True, "message": f"{action} 操作流程验证完成"}
-            if action in {"recover", "update_password", "complete_email_reset"}:
+            if action in {"recover", "recover_security", "update_password", "complete_email_reset"}:
                 result["password"] = payload.get("new_password") or payload.get("password", "")
                 result["password_change_confirmed"] = True
-            if action == "complete_security_rollback":
+            if action in {"complete_security_rollback", "recover_security"}:
                 result["security_rollback_confirmed"] = True
             return {
                 **result, "_job_id": f"fixture-{action}", "stage": "password_submitted",
-                "retryable": False, "password_submitted": action in {"recover", "update_password", "complete_email_reset"},
+                "retryable": False, "password_submitted": action in {"recover", "recover_security", "update_password", "complete_email_reset"},
             }
 
         base_url = settings.account_driver_url.rstrip("/")

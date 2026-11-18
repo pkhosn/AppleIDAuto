@@ -57,6 +57,37 @@ class DeviceDOMTest(unittest.TestCase):
             finally:
                 driver.quit()
 
+    def test_unknown_phone_recovery_requires_explicit_identity_offer(self):
+        from selenium import webdriver
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless=new')
+        driver = webdriver.Remote(os.environ['DEVICE_DOM_SELENIUM_URL'], options=options)
+        try:
+            html = """<div id='phone'><h1>确认电话号码</h1>
+              <a href='#' onclick="document.getElementById('offer').hidden=false;return false">不认识这个号码？</a>
+              <div id='offer' hidden>你可以在验证身份之后关闭双重认证。
+                <button onclick="document.getElementById('phone').hidden=true;document.getElementById('birthday').hidden=false">关闭</button></div></div>
+              <div id='birthday' hidden><h1>确认你的出生日期</h1><input></div>"""
+            driver.get('data:text/html;charset=utf-8,' + quote(html))
+            AppleFlow()._begin_unrecognized_phone_recovery(driver)
+            self.assertFalse(driver.execute_script("return document.getElementById('birthday').hidden"))
+        finally:
+            driver.quit()
+
+    def test_chinese_masked_birthday_is_set_as_a_complete_date(self):
+        from selenium import webdriver
+        options = webdriver.ChromeOptions()
+        options.add_argument('--headless=new')
+        driver = webdriver.Remote(os.environ['DEVICE_DOM_SELENIUM_URL'], options=options)
+        try:
+            html = """<h1>确认你的出生日期</h1><input id='birthday' type='text'>
+              <button onclick="window.observed=document.getElementById('birthday').value;document.getElementById('birthday').hidden=true">继续</button>"""
+            driver.get('data:text/html;charset=utf-8,' + quote(html))
+            AppleFlow()._fill_recovery_birth_date(driver, '01021970')
+            self.assertEqual('1970年01月02日', driver.execute_script('return window.observed'))
+        finally:
+            driver.quit()
+
     def test_locked_heading_split_across_dom_nodes_is_recognized(self):
         from selenium import webdriver
         options = webdriver.ChromeOptions()

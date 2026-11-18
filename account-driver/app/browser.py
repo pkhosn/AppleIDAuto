@@ -743,6 +743,8 @@ class AppleFlow:
             return self._workflow(driver, payload, job_id)
         if action == "recover":
             return self._recover(driver, payload, job_id)
+        if action == "recover_security":
+            return self._recover(driver, payload, job_id, security_recovery=True)
         if action == "request_email_reset":
             return self._request_email_reset(driver, payload, job_id)
         if action == "complete_email_reset":
@@ -928,7 +930,7 @@ class AppleFlow:
                 pass
             return {"profile": {}, "profile_restored": False, "note": "账号资料检测执行异常，已跳过"}
 
-    def _recover(self, driver, payload: dict, job_id: str = "") -> dict:
+    def _recover(self, driver, payload: dict, job_id: str = "", security_recovery: bool = False) -> dict:
         from selenium.webdriver.support.ui import WebDriverWait
 
         self._stage("identity", lambda: self._get(driver, settings.recovery_url), True)
@@ -938,12 +940,13 @@ class AppleFlow:
             True,
         )
         self._stage("captcha", lambda: self._submit_recovery_identity(driver, job_id), True)
-        self._stage("identity", lambda: self._choose_reset_password_path(driver), True)
-        self._stage("identity", lambda: self._raise_recovery_block(driver), True)
-        # Apple presents the reset-method choice before the birthday form. Pick
-        # security questions first so the default rescue-email path is never used.
-        self._stage("identity", lambda: self._choose_security_question_recovery(driver), False)
-        self._stage("identity", lambda: self._raise_recovery_block(driver), True)
+        if security_recovery:
+            self._stage("identity", lambda: self._begin_unrecognized_phone_recovery(driver), False)
+        else:
+            self._stage("identity", lambda: self._choose_reset_password_path(driver), True)
+            self._stage("identity", lambda: self._raise_recovery_block(driver), True)
+            self._stage("identity", lambda: self._choose_security_question_recovery(driver), False)
+            self._stage("identity", lambda: self._raise_recovery_block(driver), True)
         # Once the birthday form is submitted, even a page timeout must not cause
         # an automatic recovery retry. Apple can accept the identity value before
         # the next page becomes observable.
@@ -983,6 +986,11 @@ class AppleFlow:
             self._click_button(driver, ("continue", "继续", "下一步"))
 
         self._stage("security_questions", submit_answers)
+        if security_recovery:
+            self._stage("security_rollback", lambda: WebDriverWait(driver, settings.render_timeout).until(
+                lambda d: classify_security_rollback_page(self._login_snapshot(d)[1]) == "confirmation"), False)
+            self._stage("security_rollback", lambda: self._click_exact_control_anywhere(
+                driver, ("继续", "continue"), include_links=True), False)
 
         def password_form(d):
             state = self._recovery_state(d)
@@ -1021,21 +1029,53 @@ class AppleFlow:
             lambda: self._click_button(driver, ("continue", "reset", "重设", "继续")),
             password_submitted=True,
         )
-        self._stage(
-            "password_submitted",
-            lambda: self._confirm_password_change(
-                driver, password_inputs[-2:],
-                unconfirmed_code="password_reset_unconfirmed",
-                rejected_code="password_reset_unconfirmed",
-            ),
-            password_submitted=True,
-        )
+        if security_recovery:
+            self._stage("password_submitted", lambda: WebDriverWait(driver, settings.render_timeout).until(
+                lambda d: self._security_turn_off_confirmation(self._login_snapshot(d)[1])), password_submitted=True)
+            self._stage("password_submitted", lambda: self._click_exact_control_anywhere(
+                driver, ("关闭", "turn off"), include_links=True), password_submitted=True)
+            self._stage("password_submitted", lambda: WebDriverWait(driver, settings.render_timeout).until(
+                lambda d: classify_security_rollback_page(self._login_snapshot(d)[1]) == "completed"), password_submitted=True)
+        else:
+            self._stage(
+                "password_submitted",
+                lambda: self._confirm_password_change(
+                    driver, password_inputs[-2:], unconfirmed_code="password_reset_unconfirmed",
+                    rejected_code="password_reset_unconfirmed"), password_submitted=True,
+            )
         return {
-            "status": True,
-            "message": "账号恢复及密码更新完成",
-            "password": new_password,
-            "password_change_confirmed": True,
+            "status": True, "message": "双重认证已关闭并更新密码" if security_recovery else "账号恢复及密码更新完成",
+            "password": new_password, "password_change_confirmed": True,
+            **({"security_rollback_confirmed": True} if security_recovery else {}),
         }
+
+    @staticmethod
+    def _security_turn_off_confirmation(text: str) -> bool:
+        compact = re.sub(r"\s+", "", text.lower())
+        return ("关闭双重认证" in compact and "所有需要双重认证的功能都将无法使用" in compact
+                or "turnofftwo-factorauthentication" in compact and "willnolongerbeavailable" in compact)
+
+    def _begin_unrecognized_phone_recovery(self, driver):
+        from selenium.webdriver.support.ui import WebDriverWait
+
+        _, text = self._login_snapshot(driver)
+        if not any(term in text.lower() for term in ("确认电话号码", "confirm your phone number")):
+            raise FlowError("unknown_phone_recovery_unavailable", "Apple 未提供不认识号码的恢复入口", stage="identity")
+        self._click_exact_control_anywhere(driver, (
+            "不认识这个号码？", "不认识这个号码?", "don't recognize this number?", "don’t recognize this number?",
+        ), include_links=True)
+        def eligible(d):
+            _, text = self._login_snapshot(d)
+            compact = re.sub(r"\s+", "", text.lower())
+            return ("验证身份之后关闭双重认证" in compact
+                    or "turnofftwo-factorauthenticationafterverifyingyouridentity" in compact)
+        try:
+            WebDriverWait(driver, settings.render_timeout).until(eligible)
+        except Exception as exc:
+            raise FlowError("unknown_phone_recovery_unavailable", "Apple 未允许通过身份验证关闭双重认证", stage="identity") from exc
+        self._click_exact_control_anywhere(driver, ("关闭", "turn off"), include_links=True)
+        WebDriverWait(driver, settings.render_timeout).until(
+            lambda d: self._is_recovery_birthday_page(self._login_snapshot(d)[1]))
 
     def _request_email_reset(self, driver, payload: dict, job_id: str = "") -> dict:
         from selenium.webdriver.support.ui import WebDriverWait
@@ -1406,8 +1446,23 @@ class AppleFlow:
                 )
         else:
             for field, value in zip(fields, values):
-                field.clear()
-                field.send_keys(value)
+                _, page_text = self._login_snapshot(driver)
+                native_date = str(field.get_attribute("type") or "").lower() == "date"
+                chinese_mask = len(fields) == 1 and "确认你的出生日期" in page_text
+                if native_date or chinese_mask:
+                    iso = normalize_profile_date(dob)
+                    if not iso and re.fullmatch(r"\d{8}", dob):
+                        iso = datetime.strptime(dob, "%m%d%Y").strftime("%Y-%m-%d")
+                    if not iso:
+                        raise FlowError("recovery_identity_failed", "管理站生日格式无法用于 Apple 验证", stage="identity")
+                    formatted = datetime.strptime(iso, "%Y-%m-%d").strftime("%Y年%m月%d日") if chinese_mask else iso
+                    driver.execute_script(
+                        "const e=arguments[0];Object.getOwnPropertyDescriptor(HTMLInputElement.prototype,'value').set.call(e,arguments[1]);"
+                        "e.dispatchEvent(new Event('input',{bubbles:true}));e.dispatchEvent(new Event('change',{bubbles:true}));e.blur();",
+                        field, formatted)
+                else:
+                    field.clear()
+                    field.send_keys(value)
         self._click_button(driver, ("continue", "继续", "下一步"))
 
         def birthday_accepted(current_driver):
@@ -1442,7 +1497,7 @@ class AppleFlow:
         text = visible_text.lower()
         return any(term in text for term in (
             "verify your birthday", "verify your date of birth",
-            "验证您的生日", "验证你的生日", "验证您的出生日期", "验证你的出生日期",
+            "验证您的生日", "验证你的生日", "验证您的出生日期", "验证你的出生日期", "确认你的出生日期",
         ))
 
     @staticmethod

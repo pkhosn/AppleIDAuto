@@ -78,3 +78,10 @@ class BrowserSessionTest(unittest.TestCase):
         flow._recover_blank_public_account_page = Mock(return_value='normal')
         self.assertEqual('normal', flow._sign_in(object(), {'username': 'fixture', 'password': 'fixture'}))
         self.assertEqual(2, flow._type_first.call_count)
+
+
+class SecurityRecoveryConfirmationTest(unittest.TestCase):
+    def test_only_explicit_turn_off_dialog_is_accepted(self):
+        self.assertTrue(AppleFlow._security_turn_off_confirmation('关闭双重认证？请注意，所有需要双重认证的功能都将无法使用。'))
+        self.assertFalse(AppleFlow._security_turn_off_confirmation('关闭当前窗口'))
+        self.assertFalse(AppleFlow._security_turn_off_confirmation('关闭双重认证说明'))
