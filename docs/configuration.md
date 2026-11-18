@@ -39,6 +39,7 @@ php think mailbox:key --show
 | `ACCOUNT_DRIVER_QUEUE_TIMEOUT` | `1800` 秒 | 等待浏览器槽位的排队时限 |
 | `DRIVER_ACTION_TIMEOUT` | `900` 秒 | 驱动任务执行时限 |
 | `ACCOUNT_DRIVER_JOB_TIMEOUT` | `930` 秒 | 调度端等待执行结果的时限 |
+| `AUTHENTICATION_COOLDOWN_SECONDS` | `14400` 秒 | 锁定、密码或密保校验失败、无法验证身份时的最低自动重试间隔。手动检修仍可执行 |
 | `WORKFLOW_V2_ENABLED` | `false` | 复合工作流灰度开关，默认关闭 |
 | `WORKFLOW_V2_PERCENT` | `10` | 开启复合工作流后参与灰度的比例 |
 

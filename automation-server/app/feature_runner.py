@@ -5,7 +5,7 @@ import hashlib
 from uuid import uuid4
 from pathlib import Path
 from scripts.controlled_recover import load_or_create_escrow, generate_recovery_password
-from .config import settings
+from .config import AUTHENTICATION_COOLDOWN_CODES, settings
 from .notifier import notify_account_event
 
 
@@ -223,6 +223,8 @@ class FeatureRunner:
                 message = '；'.join(summaries)
             if code in {'proxy_error', 'proxy_connect_failed', 'proxy_handshake_failed', 'proxy_unavailable'} and not run_info.get('_mutation_started') and not run_info.get('_device_mutation_started') and not run_info.get('_workflow_mutation_ever_started'):
                 f.retry_technical(account_id, due, settings.technical_retry_delays, settings.max_retries)
+            if not ok and code in AUTHENTICATION_COOLDOWN_CODES:
+                f.defer_authentication(account_id, settings.authentication_cooldown_seconds)
             # Commit cadence before reporting: a report failure must not replay Apple actions.
             mutation_feature = ''
             mutation_state = 'none'

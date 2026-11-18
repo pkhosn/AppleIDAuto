@@ -82,6 +82,21 @@ class FeatureScheduleTest(unittest.TestCase):
         self.f.finish_reconciliation(1, 'device_cleanup', 'failed', 'target present')
         self.assertNotIn('device_cleanup', self.f.due(1))
 
+    def test_authentication_failure_delays_other_features_without_accelerating_long_cycles(self):
+        self.f.start(1, ORDER)
+        self.f.finish(1, ORDER, 'blocked')
+        self.f.finish(1, ['profile_restore'], 'uncertain')
+        password_update = self.f.rows(1)['password_update']['next_run_at']
+
+        self.f.defer_authentication(1, 14400)
+        earliest = self.now + timedelta(hours=4)
+        self.assertEqual(earliest.isoformat(), self.f.next_run(1))
+        self.assertEqual(earliest.isoformat(), self.f.rows(1)['profile_restore']['reconcile_at'])
+        self.assertEqual(password_update, self.f.rows(1)['password_update']['next_run_at'])
+        self.now = earliest - timedelta(seconds=1)
+        self.assertEqual([], self.f.due(1))
+        self.assertEqual([], self.f.reconciliation_due(1))
+
     def test_independent_cadence_and_completion_clock(self):
         self.f.start(1, ORDER)
         self.now += timedelta(minutes=7)

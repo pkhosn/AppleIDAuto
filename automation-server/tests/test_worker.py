@@ -1,5 +1,6 @@
 import asyncio
 from dataclasses import replace
+from datetime import datetime, timedelta, timezone
 import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -170,7 +171,7 @@ class LegacyEmailRecoveryTriggerTest(unittest.IsolatedAsyncioTestCase):
         import tempfile
         from pathlib import Path
         from app.models import TaskStore
-        for code in ('password_invalid', 'authentication_challenge_unrendered'):
+        for code in ('password_invalid', 'authentication_challenge_unrendered', 'locked', 'security_answer_invalid'):
             with self.subTest(code=code), tempfile.TemporaryDirectory() as directory:
                 store = TaskStore(str(Path(directory) / 'tasks.sqlite3'))
                 worker = Worker(store, MagicMock())
@@ -184,8 +185,10 @@ class LegacyEmailRecoveryTriggerTest(unittest.IsolatedAsyncioTestCase):
                 worker.panel.disable_account = AsyncMock()
                 worker.executor.run = AsyncMock(return_value=(False, code, None, code, None))
                 worker._auto_email_recovery = AsyncMock(return_value=(True, 'recovered', None, None))
+                started_at = datetime.now(timezone.utc)
                 with (
-                    patch('app.worker.settings', replace(settings, database_path=str(Path(directory) / 'tasks.sqlite3'))),
+                    patch('app.worker.settings', replace(settings, database_path=str(Path(directory) / 'tasks.sqlite3'),
+                                                        authentication_cooldown_seconds=14400)),
                     patch('app.worker.notify_account_event', AsyncMock(return_value='not_configured')),
                 ):
                     await worker._run_locked(1)
@@ -196,5 +199,11 @@ class LegacyEmailRecoveryTriggerTest(unittest.IsolatedAsyncioTestCase):
                     worker._auto_email_recovery.assert_not_awaited()
                     worker.panel.disable_account.assert_not_awaited()
                     worker.panel.report.assert_awaited_once_with('fixture@example.test', False, code, None, profile=None)
-                    self.assertEqual('failed', store.get(1)['status'])
+                    row = store.get(1)
+                    self.assertEqual('failed', row['status'])
+                    next_run = datetime.fromisoformat(row['next_run_at'])
+                    if code in {'locked', 'security_answer_invalid'}:
+                        self.assertGreaterEqual(next_run, started_at + timedelta(hours=4))
+                    else:
+                        self.assertLess(next_run, started_at + timedelta(hours=2))
                 store.db.close()
